@@ -3,10 +3,10 @@
 
 #include <cstdint>
 
-/// is_free flag is on the lowest bit
+/// is_free flag is on the lowest bit.
 constexpr uint8_t IS_FREE = 0x01;
 
-/// is marked flag is on the second lowest bit
+/// is marked flag is on the second lowest bit.
 constexpr uint8_t IS_MARKED = 0x02;
 
 /**
@@ -20,7 +20,9 @@ struct header {
     /// size - the amount of memory the current block occupies.
     uint32_t size;
     /// flags - 0x000000mf; m - marked (0/1), f - free (0/1).
-    uint8_t flags;
+    uint32_t flags; //< 32b only because of the alignment.
+
+    header() : next{ nullptr }, size{ 0 }, flags{ 0 } {}
 
     bool is_free() const noexcept { return flags & IS_FREE; }
     bool is_marked() const noexcept { return flags & IS_MARKED; }
@@ -32,7 +34,7 @@ struct header {
      * @example free==false, flags = 0x00000001 => flags = 0x00000001 & ~0x01 (0x11111110) => flags = 0x00.
     */
     void set_free(bool free) noexcept {
-        flags = free ? flags |= IS_FREE : flags &= ~IS_FREE;
+        flags = free ? (flags | IS_FREE) : (flags & ~IS_FREE);
     }
 
     /** 
@@ -42,7 +44,7 @@ struct header {
      * @example marked==false, flags = 0x00000010 => flags = 0x00000010 & ~0x02 (0x11111101) => flags = 0x00.
     */
     void set_marked(bool marked) noexcept {
-        flags = marked ? flags |= IS_MARKED : flags &= ~IS_MARKED;
+        flags = marked ? (flags | IS_MARKED) : (flags & ~IS_MARKED);
     }
 
     /**
@@ -72,5 +74,7 @@ struct header {
     static const header* from_data(const void* ptr) noexcept { return reinterpret_cast<const header*>(ptr) - 1; }
 
 };
+
+static_assert(sizeof(header) == 16, "Header must be 16B");
 
 #endif
