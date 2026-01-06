@@ -1,9 +1,9 @@
 #ifndef INDEXED_STACK_HPP
 #define INDEXED_STACK_HPP
 
-#include <cassert>
 #include <cstddef>
 #include <new>
+#include <stdexcept>
 #include <utility>
 
 /// initial stack capacity.
@@ -28,10 +28,12 @@ private:
      * @brief frees elements on the stack that are in certain range.
      * @param start - starting index.
      * @param end - ending index (excluded).
-     * @throws assert when start index is bigger than end, or when end is bigger than size. 
+     * @throws std::invalid_argument when start index is bigger than end, or when end is bigger than size. 
     */
     void delete_range(size_t start, size_t end) {
-        assert(start <= end && end <= size);
+        if(start > end || end > size){
+            throw std::invalid_argument("Invalid delete range");
+        }
         for(size_t i = start; i < end; ++i){
             data[i].~T();
         }
@@ -41,10 +43,12 @@ private:
      * @brief updates the capacity of the stack based on a size.
      * @param new_capacity - new capacity of the stack, can't go below DEFAULT_STACK_CAPACITY.
      * @throws std::bad_alloc when ::operator new fails to allocate memory.
-     * @throws assert if new_capacity is below DEFAULT_STACK_CAPACITY
+     * @throws std::invalid_argument if new_capacity is below DEFAULT_STACK_CAPACITY
     */
     void resize(size_t new_capacity) {
-        assert(new_capacity >= DEFAULT_STACK_CAPACITY);
+        if(new_capacity < DEFAULT_STACK_CAPACITY){
+            throw std::invalid_argument("Invalid capacity");
+        }
         T* new_data = static_cast<T*>(::operator new(sizeof(T) * new_capacity));
         
         size_t i = 0;
@@ -90,11 +94,12 @@ public:
     /// deleted copy constructor.
     indexed_stack(const indexed_stack&) = delete;
 
-    /// deleted assignment constructor.
+    /// deleted assignment operator.
     indexed_stack& operator=(const indexed_stack&) = delete;
 
     /** 
      * @brief constructs new indexed_stack from an existing one.
+     * @param other - rvalue of the existing indexed_stack
      * @details moves ownership of the data, size and capacity from other to this.
     */
     indexed_stack(indexed_stack&& other) noexcept : 
@@ -104,6 +109,7 @@ public:
     
     /** 
      * @brief constructs new indexed_stack by assigning it an existing one.
+     * @param other - rvalue of the existing indexed_stack
      * @details moves ownership of the data, size and capacity from other to this.
     */
     indexed_stack& operator=(indexed_stack&& other) noexcept {
@@ -148,10 +154,12 @@ public:
      * @brief removes the element from the top of the stack.
      * @details if 75% of capacity is free, stack is reallocated and capacity is half the previous capacity;
      * doesn't go below DEFAULT_STACK_CAPACITY.
-     * @throws assert when stack is empty.
+     * @throws std::out_of_range when stack is empty.
     */
     void pop() {
-        assert(size > 0);
+        if(size == 0){
+            throw std::out_of_range("Cannot pop from an empty stack");
+        }
         data[--size].~T();
 
         if(size <= capacity >> 2 && capacity >> 1 >= DEFAULT_STACK_CAPACITY){
@@ -162,20 +170,24 @@ public:
     /** 
      * @brief getter for the element on the top of the stack.
      * @returns the reference to the top element on the stack.
-     * @throws assert when stack is empty.
+     * @throws std::out_of_range when stack is empty.
     */
-    T& peek() noexcept {
-        assert(size > 0);
+    T& peek(){
+        if(size == 0){
+            throw std::out_of_range("Cannot peek at the empty stack");
+        }
         return data[size - 1];
     }
 
     /** 
      * @brief getter for the element on the top of the stack.
      * @returns the const reference to the top element on the stack.
-     * @throws assert when stack is empty.
+     * @throws std::out_of_range when stack is empty.
     */
-    const T& peek() const noexcept {
-        assert(size > 0);
+    const T& peek() const {
+        if(size == 0){
+            throw std::out_of_range("Cannot peek at the empty stack");
+        }
         return data[size - 1];
     }
 
@@ -191,10 +203,12 @@ public:
      * @brief operator for direct indexing.
      * @param i - position of the element on the stack; calculated from the bottom.
      * @returns reference to an element on the stack.
-     * @throws assert when index is bigger than or equal to size.
+     * @throws std::out_of_range when index is bigger than or equal to size.
     */
-    T& operator[](size_t i) noexcept {
-        assert(i < size);
+    T& operator[](size_t i) {
+        if(i >= size){
+            throw std::out_of_range("Index out of range");
+        }
         return data[i];
     }
 
@@ -202,10 +216,12 @@ public:
      * @brief operator for direct indexing.
      * @param i - position of the element on the stack; calculated from the bottom.
      * @returns const reference to an element on the stack.
-     * @throws assert when index is bigger than or equal to size.
+     * @throws std::out_of_range when index is bigger than or equal to size.
     */    
-    const T& operator[](size_t i) const noexcept {
-        assert(i < size);
+    const T& operator[](size_t i) const {
+        if(i >= size){
+            throw std::out_of_range("Index out of range");
+        }
         return data[i];
     }
 
@@ -215,6 +231,14 @@ public:
     */
     size_t get_size() const noexcept {
         return size;
+    }
+
+    /**
+     * @brief getter for the capacity of the stack.
+     * @returns capacity of the stack.
+    */
+    size_t get_capacity() const noexcept {
+        return capacity;
     }
 
     /** 
