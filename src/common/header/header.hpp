@@ -16,7 +16,7 @@ constexpr uint8_t IS_MARKED = 0x02;
 */
 struct header {
     /// if current block is free => pointer to the next free block; otherwise nullptr.
-    void* next;
+    header* next;
     /// size - the amount of memory the current block occupies.
     uint32_t size;
     /// flags - 0x000000mf; m - marked (0/1), f - free (0/1).

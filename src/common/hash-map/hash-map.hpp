@@ -316,6 +316,14 @@ public:
     }
 
     /**
+     * @brief gets the first bucket
+     * @returns pointer to the first bucket
+    */
+    hash_map_entry** get_buckets() noexcept {
+        return buckets;
+    }
+
+    /**
      * @brief gets the size of the hash_map.
      * @returns number of entries in the hash_map.
     */
