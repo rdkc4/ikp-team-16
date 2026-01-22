@@ -178,6 +178,10 @@ public:
         return thread_stack.end();
     }
 
+    /**
+     * @brief accepts the gc visitor.
+     * Calls marking on the gc visitor for thread-local elements.
+    */
     virtual void accept(gc_visitor& visitor) noexcept override {
         visitor.visit(*this);
     }
