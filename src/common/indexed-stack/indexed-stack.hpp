@@ -5,6 +5,7 @@
 #include <new>
 #include <stdexcept>
 #include <utility>
+#include <type_traits>
 
 /// initial stack capacity.
 constexpr size_t DEFAULT_STACK_CAPACITY = 8;
@@ -126,27 +127,17 @@ public:
     
     /** 
      * @brief pushes new value to the top of the stack.
+     * @tparam TT - Value forwarding type.
      * @param value - const reference object being added to the stack.
      * @details if size reaches capacity, capacity is doubled.
     */
-    void push(const T& value) {
+    template<typename TT>
+    requires std::is_constructible_v<T, TT&&>
+    void push(TT&& value) {
         if (size == capacity){
             resize(capacity << 1);
         }
-        new (data + size) T(value);
-        ++size;
-    }
-
-    /** 
-     * @brief pushes new value to the top of the stack.
-     * @param value - object being moved to the stack.
-     * @details if size reaches capacity, capacity is doubled.
-    */
-    void push(T&& value) {
-        if(size == capacity) {
-            resize(capacity << 1);
-        }
-        new (data + size) T(std::move(value));
+        new (data + size) T(std::forward<TT>(value));
         ++size;
     }
 

@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <utility>
 #include <functional>
+#include <type_traits>
 
 /// initial number of buckets.
 constexpr size_t DEFAULT_MAP_CAPACITY = 16;
@@ -12,8 +13,8 @@ constexpr size_t DEFAULT_MAP_CAPACITY = 16;
 /**
  * @class hash_map
  * @brief implementation of the hash_map; using constant number of buckets and chaining.
- * K - type of the key.
- * V - type of the value.
+ * @tparam K - type of the key.
+ * @tparam V - type of the value.
  * Hash - hash function; defaults to std::hash<K>.
 */
 template<typename K, typename V, typename Hash = std::hash<K>>
@@ -70,7 +71,7 @@ private:
      * @brief frees all entries from a bucket.
      * @param head - pointer to the first element of the bucket linked list.
     */
-    void delete_entries_from_bucket(hash_map_entry* head){
+    void delete_entries_from_bucket(hash_map_entry* head) noexcept {
         while(head){
             hash_map_entry* temp = head;
             head = head-> next;
@@ -81,7 +82,7 @@ private:
     /**
      * @brief frees all entries from each bucket.
     */
-    void clear_buckets(){
+    void clear_buckets() noexcept {
         for(size_t i = 0; i < capacity; ++i){
             delete_entries_from_bucket(buckets[i]);
         }
@@ -170,45 +171,26 @@ public:
 
     /**
      * @brief inserts new (key, value) pair; or updates value if key already exists.
-     * @param key - const reference to a key.
-     * @param value - const reference to a value.
-    */
-    void insert(const K& key, const V& value){
-        size_t bucket_idx = calculate_bucket(key);
-        hash_map_entry* current = buckets[bucket_idx];
-
-        while(current){
-            if(current->key == key){
-                current->value = value;
-                return;
-            }
-            current = current->next;
-        }
-
-        hash_map_entry* new_entry = new hash_map_entry(key, value);
-        new_entry->next = buckets[bucket_idx];
-        buckets[bucket_idx] = new_entry;
-        ++size;
-    }
-
-    /**
-     * @brief inserts new (key, value) pair; or updates value if key already exists.
+     * @tparam KK - Key forwarding type.
+     * @tparam VV - Value forwarding type.
      * @param key - rvalue of the key.
      * @param value - rvalue of the value.
     */
-    void insert(K&& key, V&& value) {
+    template<typename KK, typename VV>
+    requires std::is_constructible_v<K, KK&&> && std::is_constructible_v<V, VV&&>
+    void insert(KK&& key, VV&& value) {
         size_t bucket_idx = calculate_bucket(key);
         hash_map_entry* current = buckets[bucket_idx];
 
         while(current){
             if(current->key == key){
-                current->value = std::move(value);
+                current->value = std::forward<VV>(value);
                 return;
             }
             current = current->next;
         }
 
-        hash_map_entry* new_entry = new hash_map_entry(std::move(key), std::move(value));
+        hash_map_entry* new_entry = new hash_map_entry(std::forward<KK>(key), std::forward<VV>(value));
         new_entry->next = buckets[bucket_idx];
         buckets[bucket_idx] = new_entry;
         ++size;

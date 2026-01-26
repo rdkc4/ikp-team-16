@@ -3,6 +3,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "../common/indexed-stack/indexed-stack.hpp"
 #include "../common/hash-map/hash-map.hpp"
@@ -94,11 +95,11 @@ public:
      * @param heap_ptr - pointer to the value of the variable on the heap.
      * @throws std::invalid_argument when variable already exists.
     */
-    void init(const std::string& variable_name, header* heap_ptr = nullptr){
+    void init(std::string variable_name, header* heap_ptr = nullptr){
         if(var_to_idx.contains(variable_name)){
             throw std::invalid_argument("Variable already exists");
         }
-        thread_stack.push({variable_name, scope, heap_ptr});
+        thread_stack.push(thread_local_stack_entry{std::move(variable_name), scope, heap_ptr});
         var_to_idx.insert(variable_name, thread_stack.get_size() - 1);
     }
 
