@@ -6,8 +6,10 @@
 #include <new>
 #include <utility>
 
+#include "../header/header.hpp"
+
 // size of a single segment in bytes
-constexpr size_t SEGMENT_SIZE = 4 * 1024 * 1024;
+constexpr uint32_t SEGMENT_SIZE = 4 * 1024 * 1024;
 
 /**
  * @struct segment
@@ -17,16 +19,16 @@ struct segment {
     /// pointer to the segment's memory block.
     uint8_t* segment_memory;
     /// number of bytes that are free in segment.
-    size_t free_memory;
+    uint32_t free_memory;
 
     /**
      * @brief creates an instance of the segment.
      * @details allocates SEGMENT_SIZE bytes of memory.
      * @throws std::bad_alloc when memory allocation fails.
      */
-    segment(): 
-        segment_memory(static_cast<uint8_t*>(::operator new(SEGMENT_SIZE, std::align_val_t{alignof(std::max_align_t)}))),
-        free_memory(SEGMENT_SIZE) {}
+    segment(): segment_memory(static_cast<uint8_t*>(::operator new(SEGMENT_SIZE, std::align_val_t{alignof(std::max_align_t)}))){
+        initialize();
+    }
 
     /**
      * @brief deletes the segment.
@@ -64,6 +66,15 @@ struct segment {
             free_memory = std::exchange(other.free_memory, 0);
         }
         return *this;
+    }
+
+    /**
+     * @brief initializes the free memory and sets initial header.
+    */
+    void initialize() {
+        header* hdr = new (segment_memory) header{};
+        hdr->size = SEGMENT_SIZE - sizeof(header);
+        free_memory = hdr->size;
     }
 
 };

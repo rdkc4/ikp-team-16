@@ -22,9 +22,22 @@ struct header {
     /// flags - 0x000000mf; m - marked (0/1), f - free (0/1).
     uint32_t flags; //< 32b only because of the alignment.
 
-    header() : next{ nullptr }, size{ 0 }, flags{ 0 } {}
+    /**
+     * @brief creates the instance of the header.
+     * @details sets next to nullptr, size to 0, flags to non-marked, free.
+    */
+    header() : next{ nullptr }, size{ 0 }, flags{ 0x01 } {}
 
+    /**
+     * @brief checks if the header is free.
+     * @returns true if header has free flag 1, false otherwise
+    */
     bool is_free() const noexcept { return flags & IS_FREE; }
+
+    /**
+     * @brief checks if the header is marked.
+     * @returns true if header has marked flag 1, false otherwise.
+    */
     bool is_marked() const noexcept { return flags & IS_MARKED; }
 
     /** 
