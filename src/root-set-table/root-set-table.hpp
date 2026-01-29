@@ -4,6 +4,7 @@
 #include <string>
 #include <cstddef>
 #include <utility>
+#include <memory>
 
 #include "../common/hash-map/hash-map.hpp"
 #include "../common/root-set/root-set-base.hpp"
@@ -15,7 +16,7 @@
 class root_set_table {
 private:
     /// hash map storing root sets by name.
-    hash_map<std::string, root_set_base> roots;
+    hash_map<std::string, std::unique_ptr<root_set_base>> roots;
     
 public:
     /*
@@ -50,15 +51,12 @@ public:
 
     /**
      * @brief adds new root to the root set table.
-     * @tparam KK Key forwarding type.
-     * @tparam VV Value forwarding type.
      * @param key - name of the root.
      * @param root - instance of the root set entry.
      * @returns void
     */
-    template<typename KK, typename VV>
-    void add_root(KK&& key, VV&& root) {
-        roots.insert(std::forward<KK>(key), std::forward<VV>(root));
+    void add_root(std::string key, std::unique_ptr<root_set_base> root) {
+        roots.insert(std::move(key), std::move(root));
     }
 
     /**
@@ -76,7 +74,8 @@ public:
      * @returns pointer to a root set entry.
     */
     root_set_base* get_root(const std::string& key) noexcept {
-        return roots.find(key);
+        auto* entry = roots.find(key);
+        return entry ? entry->get() : nullptr;
     }
 
     /**
@@ -85,7 +84,8 @@ public:
      * @returns const pointer to a root set entry.
     */
     const root_set_base* get_root(const std::string& key) const noexcept {
-        return roots.find(key);
+        auto* entry = roots.find(key);
+        return entry ? entry->get() : nullptr;
     }
 
     /**
