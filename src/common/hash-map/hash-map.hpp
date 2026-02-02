@@ -7,6 +7,8 @@
 #include <functional>
 #include <type_traits>
 
+#include "hash-map-entry.hpp"
+
 /// initial number of buckets.
 constexpr size_t DEFAULT_MAP_CAPACITY = 16;
 
@@ -20,37 +22,9 @@ constexpr size_t DEFAULT_MAP_CAPACITY = 16;
 template<typename K, typename V, typename Hash = std::hash<K>>
 class hash_map {
 private:
-    /** 
-     * @struct hash_map_entry
-     * @brief the structure of the element inside of the hash_map.
-    */
-    struct hash_map_entry {
-        /// key of the entry.
-        K key;
-        /// value of the entry.
-        V value;
-        /// pointer to the next entry in the bucket.
-        hash_map_entry* next;
-
-        /**
-         * @brief creates an instance of the hash_map entry.
-         * @param k - const reference to a key.
-         * @param v - const reference to a value.
-         * @details next defaults to nullptr.
-        */
-        hash_map_entry(const K& k, const V& v): key(k), value(v), next(nullptr) {}
-
-        /**
-         * @brief creates an instance of the hash_map entry.
-         * @param k - rvalue key.
-         * @param v - rvalue value.
-         * @details next defaults to nullptr.
-        */
-        hash_map_entry(K&& k, V&& v) : key(std::move(k)), value(std::move(v)), next(nullptr) {}
-    };
-
+    using map_entry = hash_map_entry<K, V>;
     /// list containing the linked-list of entries.
-    hash_map_entry** buckets;
+    map_entry** buckets;
     /// number of entries in the hash_map.
     size_t size;
     /// number of buckets.
@@ -71,9 +45,9 @@ private:
      * @brief frees all entries from a bucket.
      * @param head - pointer to the first element of the bucket linked list.
     */
-    void delete_entries_from_bucket(hash_map_entry* head) noexcept {
+    void delete_entries_from_bucket(map_entry* head) noexcept {
         while(head){
-            hash_map_entry* temp = head;
+            map_entry* temp = head;
             head = head-> next;
             delete temp;
         }
@@ -97,7 +71,7 @@ public:
      * sets each bucket linked list to nullptr.
     */
     hash_map() :
-        buckets(static_cast<hash_map_entry**>(::operator new (sizeof(hash_map_entry*) * DEFAULT_MAP_CAPACITY))),
+        buckets(static_cast<map_entry**>(::operator new (sizeof(map_entry*) * DEFAULT_MAP_CAPACITY))),
         size(0),
         capacity(DEFAULT_MAP_CAPACITY) {
             
@@ -115,7 +89,7 @@ public:
      * sets each bucket linked list to nullptr.
     */
     hash_map(size_t hash_map_capacity) :
-        buckets(static_cast<hash_map_entry**>(::operator new (sizeof(hash_map_entry*) * hash_map_capacity))),
+        buckets(static_cast<map_entry**>(::operator new (sizeof(map_entry*) * hash_map_capacity))),
         size(0),
         capacity(hash_map_capacity) {
         
@@ -180,7 +154,7 @@ public:
     requires std::is_constructible_v<K, KK&&> && std::is_constructible_v<V, VV&&>
     void insert(KK&& key, VV&& value) {
         size_t bucket_idx = calculate_bucket(key);
-        hash_map_entry* current = buckets[bucket_idx];
+        map_entry* current = buckets[bucket_idx];
 
         while(current){
             if(current->key == key){
@@ -190,7 +164,7 @@ public:
             current = current->next;
         }
 
-        hash_map_entry* new_entry = new hash_map_entry(std::forward<KK>(key), std::forward<VV>(value));
+        map_entry* new_entry = new hash_map_entry(std::forward<KK>(key), std::forward<VV>(value));
         new_entry->next = buckets[bucket_idx];
         buckets[bucket_idx] = new_entry;
         ++size;
@@ -203,7 +177,7 @@ public:
     */
     V* find(const K& key) noexcept {
         size_t bucket_idx = calculate_bucket(key);
-        hash_map_entry* current = buckets[bucket_idx];
+        map_entry* current = buckets[bucket_idx];
 
         while(current) {
             if(current->key == key){
@@ -221,7 +195,7 @@ public:
     */
     const V* find(const K& key) const noexcept {
         size_t bucket_idx = calculate_bucket(key);
-        hash_map_entry* current = buckets[bucket_idx];
+        map_entry* current = buckets[bucket_idx];
 
         while(current){
             if(current->key == key){
@@ -239,8 +213,8 @@ public:
     */
     bool erase(const K& key){
         size_t bucket_idx = calculate_bucket(key);
-        hash_map_entry* current = buckets[bucket_idx];
-        hash_map_entry* previous = nullptr;
+        map_entry* current = buckets[bucket_idx];
+        map_entry* previous = nullptr;
 
         while(current){
             if(current->key == key){
@@ -301,7 +275,7 @@ public:
      * @brief gets the first bucket
      * @returns pointer to the first bucket
     */
-    hash_map_entry** get_buckets() noexcept {
+    map_entry** get_buckets() noexcept {
         return buckets;
     }
 

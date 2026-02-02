@@ -10,6 +10,7 @@
 #include "../common/header/header.hpp"
 #include "../common/root-set/root-set-base.hpp"
 #include "../common/gc/gc-visitor.hpp"
+#include "../common/root-set/thread-local-stack-entry.hpp"
 
 /**
  * @class thread_local_stack
@@ -17,19 +18,6 @@
 */
 class thread_local_stack final : public root_set_base {
 private:
-    /**
-     * @struct thread_local_stack_entry
-     * @brief element of the thread_local_stack.
-    */
-    struct thread_local_stack_entry {
-        /// name of the variable (unique).
-        std::string variable_name;
-        /// id of the scope in which variable was initialized (simulation purposes).
-        size_t scope;
-        /// pointer to the header of the block containing the data of the variable on the heap.
-        header* ref_to;
-    };
-
     /// id of the last pushed scope.
     size_t scope;
     /// stack of initialized variables.
@@ -157,6 +145,14 @@ public:
 
     /**
      * @brief getter for the thread_stack.
+     * @returns reference to thread_stack.
+    */
+    indexed_stack<thread_local_stack_entry>& get_thread_stack() noexcept {
+        return thread_stack;
+    }
+
+    /**
+     * @brief getter for the thread_stack.
      * @returns const reference to thread_stack.
     */
     const indexed_stack<thread_local_stack_entry>& get_thread_stack() const noexcept {
@@ -181,6 +177,7 @@ public:
 
     /**
      * @brief accepts the gc visitor.
+     * @param visitor - reference to a gc visitor.
      * Calls marking on the gc visitor for thread-local elements.
     */
     virtual void accept(gc_visitor& visitor) noexcept override {

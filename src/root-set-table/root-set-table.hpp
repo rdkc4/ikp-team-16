@@ -89,6 +89,22 @@ public:
     }
 
     /**
+     * @brief getter for the root-set-table.
+     * @returns reference to a root-set-table.
+    */
+    hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() noexcept {
+        return roots;
+    }
+
+    /**
+     * @brief getter for the root-set-table.
+     * @returns const reference to a root-set-table.
+    */
+    const hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() const noexcept {
+        return roots;
+    }
+
+    /**
      * @brief removes all roots from root set table.
      * @returns void
     */

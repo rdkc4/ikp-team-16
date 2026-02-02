@@ -49,6 +49,7 @@ public:
 
     /**
      * @brief accepts the gc visitor.
+     * @param visitor - reference to a gc visitor.
      * Calls marking on the gc visitor for register variable element.
     */
     virtual void accept(gc_visitor& visitor) noexcept override {

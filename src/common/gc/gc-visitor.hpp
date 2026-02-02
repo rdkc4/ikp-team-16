@@ -19,21 +19,18 @@ public:
     /**
      * @brief virtual function for marking elements of a thread stack.
      * @param stack - reference to a thread local stack.
-     * @returns void
     */
     virtual void visit(thread_local_stack& stack) = 0;
 
     /**
      * @brief virtual function for marking elements of a global root.
      * @param global - reference to a global variable.
-     * @returns void
     */
     virtual void visit(global_root& global) = 0;
 
     /**
      * @brief virtual function for marking elements of a register root
      * @param reg - reference to a register variable.
-     * @returns void
     */
     virtual void visit(register_root& reg) = 0;
 };
