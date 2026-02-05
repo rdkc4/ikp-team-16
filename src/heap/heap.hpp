@@ -1,9 +1,10 @@
 #ifndef HEAP_HPP
 #define HEAP_HPP
 
-#include "../common/segment/segment.hpp"
 #include <cstddef>
 #include <stdexcept>
+
+#include "../common/segment/segment.hpp"
 
 /// number of small object segments.
 constexpr size_t SMALL_OBJECT_SEGMENTS = 4;
@@ -127,38 +128,6 @@ public:
             throw std::out_of_range("Large object segment index out of range");
         }
         return large_object_segments[index];
-    }
-
-    /**
-     * @brief getter for the number of small object segments.
-     * @returns number of small object segments.
-    */
-    static constexpr size_t get_small_object_segment_count() noexcept {
-        return SMALL_OBJECT_SEGMENTS;
-    }
-
-    /**
-     * @brief getter for the number of medium object segments.
-     * @returns number of medium object segments.
-    */
-    static constexpr size_t get_medium_object_segment_count() noexcept {
-        return MEDIUM_OBJECT_SEGMENTS;
-    }
-
-    /**
-     * @brief getter for the number of large object segments.
-     * @returns number of large object segments.
-    */
-    static constexpr size_t get_large_object_segment_count() noexcept {
-        return LARGE_OBJECT_SEGMENTS;
-    }
-
-    /**
-     * @brief getter for the total number of segments.
-     * @returns total number of segments.
-    */
-    static constexpr size_t get_total_segment_count() noexcept {
-        return TOTAL_SEGMENTS;
     }
 };
 

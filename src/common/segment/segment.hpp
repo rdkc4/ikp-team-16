@@ -9,7 +9,7 @@
 #include "../header/header.hpp"
 
 // size of a single segment in bytes
-constexpr uint32_t SEGMENT_SIZE = 4 * 1024 * 1024;
+constexpr uint32_t SEGMENT_SIZE = 16 * 1024 * 1024;
 
 /**
  * @struct segment

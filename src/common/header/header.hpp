@@ -2,6 +2,7 @@
 #define HEADER_HPP
 
 #include <cstdint>
+#include <atomic>
 
 /// is_free flag is on the lowest bit.
 constexpr uint8_t IS_FREE = 0x01;
@@ -20,7 +21,7 @@ struct header {
     /// size - the amount of memory the current block occupies.
     uint32_t size;
     /// flags - 0x000000mf; m - marked (0/1), f - free (0/1).
-    uint32_t flags; //< 32b only because of the alignment.
+    std::atomic<uint32_t> flags; //< 32b only because of the alignment.
 
     /**
      * @brief creates the instance of the header.
@@ -32,13 +33,17 @@ struct header {
      * @brief checks if the header is free.
      * @returns true if header has free flag 1, false otherwise
     */
-    bool is_free() const noexcept { return flags & IS_FREE; }
+    bool is_free() const noexcept {
+        return flags.load(std::memory_order_acquire) & IS_FREE; 
+    }
 
     /**
      * @brief checks if the header is marked.
      * @returns true if header has marked flag 1, false otherwise.
     */
-    bool is_marked() const noexcept { return flags & IS_MARKED; }
+    bool is_marked() const noexcept { 
+        return flags.load(std::memory_order_acquire) & IS_MARKED; 
+    }
 
     /** 
      * @brief sets the is_free flag.
@@ -47,7 +52,12 @@ struct header {
      * @example free==false, flags = 0x00000001 => flags = 0x00000001 & ~0x01 (0x11111110) => flags = 0x00.
     */
     void set_free(bool free) noexcept {
-        flags = free ? (flags | IS_FREE) : (flags & ~IS_FREE);
+        if(free){
+            flags.fetch_or(IS_FREE, std::memory_order_release);
+        }
+        else {
+            flags.fetch_and(~IS_FREE, std::memory_order_release);
+        }
     }
 
     /** 
@@ -57,7 +67,12 @@ struct header {
      * @example marked==false, flags = 0x00000010 => flags = 0x00000010 & ~0x02 (0x11111101) => flags = 0x00.
     */
     void set_marked(bool marked) noexcept {
-        flags = marked ? (flags | IS_MARKED) : (flags & ~IS_MARKED);
+        if(marked){
+            flags.fetch_or(IS_MARKED, std::memory_order_release);
+        }
+        else {
+            flags.fetch_and(~IS_MARKED, std::memory_order_release);
+        }
     }
 
     /**

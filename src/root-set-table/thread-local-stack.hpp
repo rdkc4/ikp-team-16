@@ -87,8 +87,8 @@ public:
         if(var_to_idx.contains(variable_name)){
             throw std::invalid_argument("Variable already exists");
         }
+        var_to_idx.insert(variable_name, thread_stack.get_size());
         thread_stack.push(thread_local_stack_entry{std::move(variable_name), scope, heap_ptr});
-        var_to_idx.insert(variable_name, thread_stack.get_size() - 1);
     }
 
     /**

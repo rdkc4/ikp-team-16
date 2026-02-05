@@ -10,7 +10,7 @@
 #include "hash-map-entry.hpp"
 
 /// initial number of buckets.
-constexpr size_t DEFAULT_MAP_CAPACITY = 16;
+constexpr size_t DEFAULT_MAP_CAPACITY = 8;
 
 /**
  * @class hash_map

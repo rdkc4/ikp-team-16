@@ -2,20 +2,24 @@
 #define HEAP_MANAGER_HPP
 
 #include <cstdint>
+#include <atomic>
+#include <latch>
 #include <memory>
+#include <mutex>
 
 #include "../heap/heap.hpp"
 #include "../segment-free-memory-table/segment-free-memory-table.hpp"
 #include "../root-set-table/root-set-table.hpp"
+#include "../garbage-collector/gc.hpp"
 
-/// maximum small object size in bytes.
+/// maximum small object size in bytes (up to 256B).
 constexpr uint32_t SMALL_OBJECT_THRESHOLD = 256;
 
-/// maximum medium object size in bytes.
+/// maximum medium object size in bytes (up to 2KB).
 constexpr uint32_t MEDIUM_OBJECT_THRESHOLD = 2 * 1024;
 
-/// maximum large object size in bytes.
-constexpr uint32_t LARGE_OBJECT_THRESHOLD = 2 * 1024 * 1024;
+/// maximum large object size in bytes (up to 256KB).
+constexpr uint32_t LARGE_OBJECT_THRESHOLD = 256 * 1024;
 
 /**
  * @class heap_manager
@@ -24,7 +28,7 @@ constexpr uint32_t LARGE_OBJECT_THRESHOLD = 2 * 1024 * 1024;
 class heap_manager {
 private:
     /// segmented memory for object allocation.
-    heap memory_heap;
+    heap heap_memory;
 
     /// table containing the linked lists of free memory for each segment.
     segment_free_memory_table free_memory_table;
@@ -32,6 +36,27 @@ private:
     /// table containing the roots. 
     root_set_table root_set;
 
+    /// thread pool for coalescing segments.
+    thread_pool heap_manager_thread_pool;
+
+    /// gc for heap cleanup.
+    garbage_collector gc;
+
+    /// locks for heap segments.
+    std::mutex segment_locks[TOTAL_SEGMENTS];
+
+    /// indicates whether gc is currently running.
+    std::atomic<bool> gc_in_progress{false};
+
+    /// small object segment that was used last, default to last.
+    std::atomic<size_t> last_small_segment{SMALL_OBJECT_SEGMENTS - 1};
+
+    /// medium object segment that was used last, default to last.
+    std::atomic<size_t> last_medium_segment{SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS - 1};
+
+    /// large object segment that was used last, default to last.
+    std::atomic<size_t> last_large_segment{SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + LARGE_OBJECT_SEGMENTS - 1};
+    
     /**
      * @brief getter for the index of the segment based on object size category.
      * @param segment_index - index of the segment 0 to (n-1).
@@ -56,13 +81,13 @@ private:
     */
     segment& get_segment(size_t segment_index){
         if(segment_index < SMALL_OBJECT_SEGMENTS){
-            return memory_heap.get_small_object_segment(segment_index);
+            return heap_memory.get_small_object_segment(segment_index);
         }
         else if(segment_index < SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS){
-            return memory_heap.get_medium_object_segment(segment_index - SMALL_OBJECT_SEGMENTS);
+            return heap_memory.get_medium_object_segment(segment_index - SMALL_OBJECT_SEGMENTS);
         }
         else{
-            return memory_heap.get_large_object_segment(segment_index - SMALL_OBJECT_SEGMENTS - MEDIUM_OBJECT_SEGMENTS);
+            return heap_memory.get_large_object_segment(segment_index - SMALL_OBJECT_SEGMENTS - MEDIUM_OBJECT_SEGMENTS);
         }
     }
 
@@ -71,39 +96,68 @@ private:
      * @param bytes - number of bytes that need to be allocated.
      * @returns index of the segment if segment can allocate enough bytes, -1 otherwise.
     */
-    int find_suitable_segment(uint32_t bytes) const noexcept {
+    int find_suitable_segment(uint32_t bytes) noexcept {
         size_t start_idx{}, end_idx{};
+        std::atomic<size_t>* last_segment_idx;
+        int fallback_segment_idx = -1;
+        uint32_t fallback_segment_size = 0;
 
         if(bytes <= SMALL_OBJECT_THRESHOLD){
             start_idx = 0;
             end_idx = SMALL_OBJECT_SEGMENTS;
+            last_segment_idx = &last_small_segment;
         }
         else if(bytes <= MEDIUM_OBJECT_THRESHOLD){
             start_idx = SMALL_OBJECT_SEGMENTS;
             end_idx = SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS;
+            last_segment_idx = &last_medium_segment;
         }
         else {
             start_idx = SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS;
             end_idx = SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + LARGE_OBJECT_SEGMENTS;
+            last_segment_idx = &last_large_segment;
         }
 
-        for(size_t i = start_idx; i < end_idx; ++i){
-            const segment_info* seg_info = free_memory_table.get_segment_info(i);
-            if(seg_info && seg_info->free_bytes >= bytes + sizeof(header)){
-                return static_cast<int>(i);
+        const size_t segment_count = end_idx - start_idx;
+        size_t last_used = last_segment_idx->load(std::memory_order_acquire); 
+        size_t start_offset = (last_used >= start_idx && last_used < end_idx) ? (last_used - start_idx) : 0;
+
+        for(size_t offset = 0; offset < segment_count; ++offset){
+            size_t relative_idx = (start_offset + offset + 1) % segment_count;
+            size_t idx = start_idx + relative_idx;
+
+            const segment_info* seg_info = free_memory_table.get_segment_info(idx);
+            if(!seg_info) continue;
+
+            const uint32_t free_bytes = std::atomic_ref<const uint32_t>(seg_info->free_bytes).load(std::memory_order_acquire);
+            if(free_bytes < bytes + sizeof(header)) continue;
+            
+            if(fallback_segment_idx == -1 || fallback_segment_size < free_bytes){
+                fallback_segment_idx = idx;
+                fallback_segment_size = free_bytes;
             }
+
+            std::unique_lock<std::mutex> segment_lock(segment_locks[idx], std::try_to_lock);
+            if(!segment_lock.owns_lock()) continue;
+
+            last_segment_idx->store(idx, std::memory_order_release);
+            return static_cast<int>(idx);
         }
 
-        return -1;
+        if(fallback_segment_idx != -1){
+            last_segment_idx->store(static_cast<size_t>(fallback_segment_idx), std::memory_order_release);
+        }
+
+        return fallback_segment_idx;
     }
 
     /**
      * @brief allocates object on the heap segment.
      * @param segment_index - index of the segment.
      * @param bytes - required memory.
-     * @returns pointer to data of the object.
+     * @returns pointer to the header of the object.
     */
-    void* allocate_from_segment(size_t segment_index, uint32_t bytes){
+    header* allocate_from_segment(size_t segment_index, uint32_t bytes){
         segment_info* seg_info = free_memory_table.get_segment_info(segment_index);
         if(!seg_info || !seg_info->free_list_head){
             return nullptr;
@@ -149,7 +203,7 @@ private:
         current->next = nullptr;
 
         seg_info->free_bytes -= (current->size + static_cast<uint32_t>(sizeof(header)));
-        return current->data_ptr();
+        return current;
     }
 
     /**
@@ -160,9 +214,7 @@ private:
         segment& seg = get_segment(segment_index);
         segment_info* seg_info = free_memory_table.get_segment_info(segment_index);
 
-        if(seg_info){
-            return;
-        }
+        if(!seg_info) return;
 
         header* free_list = nullptr;
         uint32_t free_bytes = 0;
@@ -196,29 +248,49 @@ private:
         }
 
         seg_info->free_list_head = free_list;
-        seg_info->free_bytes = free_bytes;
+        std::atomic_ref<uint32_t>(seg_info->free_bytes).store(free_bytes, std::memory_order_release);
+    }
+
+    /**
+     * @brief merges free blocks of segments.
+     * @warning must be called during the STW, after gc finishes collecting.
+    */
+    void coalesce_segments(){
+        if constexpr (TOTAL_SEGMENTS == 0) return;
+        
+        std::latch completion_latch{TOTAL_SEGMENTS};
+
+        for(size_t i = 0; i < TOTAL_SEGMENTS; ++i){
+            heap_manager_thread_pool.enqueue([this, i, &completion_latch] -> void {
+                coalesce_segment(i);
+                completion_latch.count_down();
+            });
+        }
+
+        completion_latch.wait();
     }
 
 public:
     /**
      * @brief creates the instance of the heap manager.
+     * @param gc_thread_count - size of gc thread pool, defaults to 1.
      * @details initializes the segments on the heap, initializes free memory tables.
     */
-    heap_manager() {
+    heap_manager(size_t hm_thread_count, size_t gc_thread_count = 1) : heap_manager_thread_pool(hm_thread_count), gc(gc_thread_count) {
         for(size_t i = 0; i < SMALL_OBJECT_SEGMENTS; ++i) {
-            segment& segment = memory_heap.get_small_object_segment(i);
+            segment& segment = heap_memory.get_small_object_segment(i);
             header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
             free_memory_table.update_segment(i, segment.free_memory, initial_header);
         }
 
         for(size_t i = 0; i < MEDIUM_OBJECT_SEGMENTS; ++i) {
-            segment& segment = memory_heap.get_medium_object_segment(i);
+            segment& segment = heap_memory.get_medium_object_segment(i);
             header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
             free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + i, segment.free_memory, initial_header);
         }
 
         for(size_t i = 0; i < LARGE_OBJECT_SEGMENTS; ++i) {
-            segment& segment = memory_heap.get_large_object_segment(i);
+            segment& segment = heap_memory.get_large_object_segment(i);
             header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
             free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + i, segment.free_memory, initial_header);
         }
@@ -244,40 +316,42 @@ public:
     /**
      * @brief tries to allocate memory on the heap.
      * @param bytes - number of bytes that need to be allocated.
-     * @returns pointer to data if allocation is successful, nullptr otherwise.
+     * @returns pointer to header of the object if allocation is successful, nullptr otherwise.
     */
-    void* allocate(uint32_t bytes){
-        if(bytes == 0){
-            return nullptr;
-        }
-
+    header* allocate(uint32_t bytes){
+        if(bytes == 0) return nullptr;
         bytes = (bytes + 15) & ~15;
 
-        int segment_index = find_suitable_segment(bytes);
-        /// no suitable segments => call gc
-        /*if(segment_index == -1){
-            gc.collect_garbage();
-            segment_index = find_suitable_segment(bytes);
-            if(segment_index == -1){
-                return nullptr;
+        constexpr size_t FAST_ATTEMPTS = 3;
+
+        for(size_t i = 0; i < FAST_ATTEMPTS; ++i){
+            int segment_index = find_suitable_segment(bytes);
+            if(segment_index >= 0){
+                std::lock_guard<std::mutex> seg_lock(segment_locks[segment_index]);
+                if(header* obj = allocate_from_segment(static_cast<size_t>(segment_index), bytes))
+                    return obj;
             }
-        }*/
-
-        return allocate_from_segment(static_cast<size_t>(segment_index), bytes);
-    }
-
-    /**
-     * @brief deallocates the object from the heap.
-     * @param ptr - pointer to data of the object.
-    */
-    void deallocate(void* ptr){
-        if(!ptr){
-            return;
+        }
+        
+        bool expected = false;
+        if(gc_in_progress.compare_exchange_strong(expected, true, std::memory_order_acq_rel)){
+            collect_garbage();
+            gc_in_progress.store(false, std::memory_order_release);
+            gc_in_progress.notify_all();
+        }
+        else {
+            while(gc_in_progress.load(std::memory_order_acquire)){
+                gc_in_progress.wait(true);
+            }
         }
 
-        header* hdr = header::from_data(ptr);
-        hdr->set_free(true);
-        hdr->set_marked(false);
+        int segment_index = find_suitable_segment(bytes);
+        if(segment_index >= 0){
+            std::lock_guard<std::mutex> seg_lock(segment_locks[segment_index]);
+            return allocate_from_segment(static_cast<size_t>(segment_index), bytes);
+        }
+
+        return nullptr;
     }
 
     /**
@@ -285,20 +359,36 @@ public:
      * @param key - name of the root.
      * @param base - element of the root-set-table.
     */
-    void add_root_set(std::string key, std::unique_ptr<root_set_base> base){
+    void add_root(std::string key, std::unique_ptr<root_set_base> base){
         root_set.add_root(std::move(key), std::move(base));
     }
 
-    root_set_base* get_root(std::string& key) {
+    root_set_base* get_root(const std::string& key) {
         return root_set.get_root(key);
     }
 
     /**
      * @brief removes root from the root-set-table.
-     * @param key - reference to a name of the root-set-table.
+     * @param key - const reference to a name of the root-set-table.
     */
-    void remove_root_set(std::string& key){
+    void remove_root(const std::string& key){
         root_set.remove_root(key);
+    }
+
+    /**
+     * @brief starts the garbage collection.
+     * @details "Stop the world", mark & sweep collection and coalescing of segments.
+     * @warning can be called by client, but it may be expensive if called frequently.
+    */
+    void collect_garbage(){
+        std::unique_lock<std::mutex> locks[TOTAL_SEGMENTS];
+
+        for(size_t i = 0; i < TOTAL_SEGMENTS; ++i){
+            locks[i] = std::unique_lock<std::mutex>(segment_locks[i]);
+        }
+
+        gc.collect(root_set, heap_memory);
+        coalesce_segments();
     }
 };
 
