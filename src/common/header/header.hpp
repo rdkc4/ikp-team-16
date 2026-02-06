@@ -27,23 +27,19 @@ struct header {
      * @brief creates the instance of the header.
      * @details sets next to nullptr, size to 0, flags to non-marked, free.
     */
-    header() : next{ nullptr }, size{ 0 }, flags{ 0x01 } {}
+    header();
 
     /**
      * @brief checks if the header is free.
      * @returns true if header has free flag 1, false otherwise
     */
-    bool is_free() const noexcept {
-        return flags.load(std::memory_order_acquire) & IS_FREE; 
-    }
+    bool is_free() const noexcept;
 
     /**
      * @brief checks if the header is marked.
      * @returns true if header has marked flag 1, false otherwise.
     */
-    bool is_marked() const noexcept { 
-        return flags.load(std::memory_order_acquire) & IS_MARKED; 
-    }
+    bool is_marked() const noexcept;
 
     /** 
      * @brief sets the is_free flag.
@@ -51,14 +47,7 @@ struct header {
      * @example free==true, flags = 0x00000000 => flags = 0x00000000 | 0x01 (0x00000001) => flags = 0x01.
      * @example free==false, flags = 0x00000001 => flags = 0x00000001 & ~0x01 (0x11111110) => flags = 0x00.
     */
-    void set_free(bool free) noexcept {
-        if(free){
-            flags.fetch_or(IS_FREE, std::memory_order_release);
-        }
-        else {
-            flags.fetch_and(~IS_FREE, std::memory_order_release);
-        }
-    }
+    void set_free(bool free) noexcept;
 
     /** 
      * @brief sets the is_marked flag.
@@ -66,40 +55,33 @@ struct header {
      * @example marked==true, flags = 0x00000000 => flags = 0x00000000 | 0x02 (0x00000010) => flags = 0x02.
      * @example marked==false, flags = 0x00000010 => flags = 0x00000010 & ~0x02 (0x11111101) => flags = 0x00.
     */
-    void set_marked(bool marked) noexcept {
-        if(marked){
-            flags.fetch_or(IS_MARKED, std::memory_order_release);
-        }
-        else {
-            flags.fetch_and(~IS_MARKED, std::memory_order_release);
-        }
-    }
+    void set_marked(bool marked) noexcept;
 
     /**
      * @brief getter for the address where data begins.
      * @returns pointer to data.
     */
-    void* data_ptr() noexcept { return reinterpret_cast<void*>(this + 1); }
+    void* data_ptr() noexcept;
 
     /**
      * @brief getter for the address where data begins.
      * @returns pointer to const data.
     */
-    const void* data_ptr() const noexcept { return reinterpret_cast<const void*>(this + 1); }
+    const void* data_ptr() const noexcept;
 
     /**
      * @brief getter for the header of the data.
      * @param ptr - pointer to data.
      * @returns pointer to header.
     */
-    static header* from_data(void* ptr) noexcept { return reinterpret_cast<header*>(ptr) - 1; }
+    static header* from_data(void* ptr) noexcept;
 
     /**
      * @brief getter for the header of the data.
      * @param ptr - const pointer to data.
      * @returns const pointer to header.
     */
-    static const header* from_data(const void* ptr) noexcept { return reinterpret_cast<const header*>(ptr) - 1; }
+    static const header* from_data(const void* ptr) noexcept;
 
 };
 

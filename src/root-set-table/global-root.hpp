@@ -20,41 +20,32 @@ public:
      * @brief creates the instance of the global variable
      * @param var_ptr - pointer to a header of the global variable on the heap
     */
-    global_root(header* var_ptr) : global_variable_ptr{ var_ptr } {}
+    global_root(header* var_ptr);
 
     /**
      * @brief getter for the global variable.
      * @returns pointer to a header of the global variable on the heap
     */
-    header* get_global_variable() noexcept {
-        return global_variable_ptr;
-    }
+    header* get_global_variable() noexcept;
 
     /**
      * @brief getter for the global variable.
      * @returns const pointer to a header of the global variable on the heap
     */
-    const header* get_global_variable() const noexcept {
-        return global_variable_ptr;
-    }
+    const header* get_global_variable() const noexcept;
 
     /**
      * @brief setter for the global variable.
      * @param var_ptr - pointer to the header of the global variable on the heap
-     * @returns void
     */
-    void set_global_variable(header* var_ptr) noexcept {
-        global_variable_ptr = var_ptr;
-    }
+    void set_global_variable(header* var_ptr) noexcept;
     
     /**
      * @brief accepts the gc visitor.
      * @param visitor - reference to a gc visitor.
      * Calls marking on the gc visitor for global variable element.
     */
-    virtual void accept(gc_visitor& visitor) noexcept {
-        visitor.visit(*this);
-    }
+    virtual void accept(gc_visitor& visitor) noexcept override;
 
 };
 

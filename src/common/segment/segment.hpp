@@ -1,12 +1,7 @@
 #ifndef SEGMENT_HPP
 #define SEGMENT_HPP
 
-#include <cstddef>
 #include <cstdint>
-#include <new>
-#include <utility>
-
-#include "../header/header.hpp"
 
 // size of a single segment in bytes
 constexpr uint32_t SEGMENT_SIZE = 16 * 1024 * 1024;
@@ -26,17 +21,13 @@ struct segment {
      * @details allocates SEGMENT_SIZE bytes of memory.
      * @throws std::bad_alloc when memory allocation fails.
      */
-    segment(): segment_memory(static_cast<uint8_t*>(::operator new(SEGMENT_SIZE, std::align_val_t{alignof(std::max_align_t)}))){
-        initialize();
-    }
+    segment();
 
     /**
      * @brief deletes the segment.
      * @details frees the allocated memory.
     */
-    ~segment() {
-        ::operator delete(segment_memory, std::align_val_t{alignof(std::max_align_t)});
-    }
+    ~segment();
 
     /// deleted copy constructor.
     segment(const segment&) = delete;
@@ -49,33 +40,19 @@ struct segment {
      * @param other - rvalue of the existing segment.
      * @details moves ownership of the data from other to this.
     */
-    segment(segment&& other) noexcept :
-        segment_memory(std::exchange(other.segment_memory, nullptr)),
-        free_memory(std::exchange(other.free_memory, 0)) {}
+    segment(segment&& other) noexcept;
 
     /**
      * @brief constructs new segment by assigning it an existing one.
      * @param other - rvalue of the existing segment.
      * @details moves ownership of the data from other to this.
     */
-    segment& operator=(segment&& other) noexcept {
-        if(this != &other){
-            ::operator delete(segment_memory, std::align_val_t{alignof(std::max_align_t)});
-
-            segment_memory = std::exchange(other.segment_memory, nullptr);
-            free_memory = std::exchange(other.free_memory, 0);
-        }
-        return *this;
-    }
+    segment& operator=(segment&& other) noexcept;
 
     /**
      * @brief initializes the free memory and sets initial header.
     */
-    void initialize() {
-        header* hdr = new (segment_memory) header{};
-        hdr->size = SEGMENT_SIZE - sizeof(header);
-        free_memory = hdr->size;
-    }
+    void initialize();
 
 };
 

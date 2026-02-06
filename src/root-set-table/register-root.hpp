@@ -20,41 +20,34 @@ public:
      * @brief creates the instance of the register variable
      * @param var_ptr - pointer to a header of the register variable on the heap.
     */
-    register_root(header* var_ptr) : register_variable{ var_ptr } {}
+    register_root(header* var_ptr);
 
     /**
      * @brief getter for the register variable
      * @returns pointer to a header of the register variable on the heap.
     */
-    header* get_register_variable() noexcept {
-        return register_variable;
-    }
+    header* get_register_variable() noexcept;
 
     /**
      * @brief getter for the register variable
      * @returns const pointer to a header of the register variable on the heap.
     */
-    const header* get_register_variable() const noexcept {
-        return register_variable;
-    }
+    const header* get_register_variable() const noexcept;
 
     /**
      * @brief setter for the register variable
      * @param var_ptr - pointer to a header of the variable on the heap.
      * @returns void
     */
-    void set_register_variable(header* var_ptr) noexcept {
-        register_variable = var_ptr;
-    }
+    void set_register_variable(header* var_ptr) noexcept;
 
     /**
      * @brief accepts the gc visitor.
      * @param visitor - reference to a gc visitor.
      * Calls marking on the gc visitor for register variable element.
     */
-    virtual void accept(gc_visitor& visitor) noexcept override {
-        visitor.visit(*this);
-    }
+    virtual void accept(gc_visitor& visitor) noexcept override;
+
 };
 
 #endif

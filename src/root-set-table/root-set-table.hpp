@@ -3,7 +3,6 @@
 
 #include <string>
 #include <cstddef>
-#include <utility>
 #include <memory>
 
 #include "../common/hash-map/hash-map.hpp"
@@ -19,7 +18,7 @@ private:
     hash_map<std::string, std::unique_ptr<root_set_base>> roots;
     
 public:
-    /*
+    /**
      * @brief creates an instance of the root set table.
     */
     root_set_table() = default;
@@ -55,70 +54,52 @@ public:
      * @param root - instance of the root set entry.
      * @returns void
     */
-    void add_root(std::string key, std::unique_ptr<root_set_base> root) {
-        roots.insert(std::move(key), std::move(root));
-    }
+    void add_root(std::string key, std::unique_ptr<root_set_base> root);
 
     /**
      * @brief removes root from the root set table.
      * @param key - name of the root.
      * @returns void
     */
-    void remove_root(const std::string& key) {
-        roots.erase(key);
-    }
+    void remove_root(const std::string& key);
 
     /**
      * @brief getter for the root from the root set table.
      * @param key - name of the root.
      * @returns pointer to a root set entry.
     */
-    root_set_base* get_root(const std::string& key) noexcept {
-        auto* entry = roots.find(key);
-        return entry ? entry->get() : nullptr;
-    }
+    root_set_base* get_root(const std::string& key) noexcept;
 
     /**
      * @brief getter for the root from the root set table.
      * @param key - name of the root.
      * @returns const pointer to a root set entry.
     */
-    const root_set_base* get_root(const std::string& key) const noexcept {
-        auto* entry = roots.find(key);
-        return entry ? entry->get() : nullptr;
-    }
+    const root_set_base* get_root(const std::string& key) const noexcept;
 
     /**
      * @brief getter for the root-set-table.
      * @returns reference to a root-set-table.
     */
-    hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() noexcept {
-        return roots;
-    }
+    hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() noexcept;
 
     /**
      * @brief getter for the root-set-table.
      * @returns const reference to a root-set-table.
     */
-    const hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() const noexcept {
-        return roots;
-    }
+    const hash_map<std::string, std::unique_ptr<root_set_base>>& get_roots() const noexcept;
 
     /**
      * @brief removes all roots from root set table.
      * @returns void
     */
-    void clear() noexcept {
-        roots.clear();
-    }
+    void clear() noexcept;
 
     /**
      * @brief getter for the number of roots in the root set table.
      * @returns number of roots.
     */
-    size_t get_root_count() const noexcept {
-        return roots.get_size();
-    }
+    size_t get_root_count() const noexcept;
 
 };
 
