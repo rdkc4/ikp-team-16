@@ -50,7 +50,7 @@ public:
      * @param free_bytes - free bytes in a segment.
      * @param free_list_head - pointer to a head of the free list.
     */
-    void update_segment(size_t segment_index, uint32_t free_bytes, header* free_list_head);
+    void update_segment(size_t segment_index, header* free_list_head, uint32_t free_bytes);
 
     /**
      * @brief getter for the info of the specific segment.

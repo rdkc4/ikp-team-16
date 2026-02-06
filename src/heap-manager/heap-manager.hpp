@@ -26,6 +26,9 @@ constexpr uint32_t LARGE_OBJECT_THRESHOLD = 256 * 1024;
 */
 class heap_manager {
 private:
+    /// locks for heap segments.
+    std::mutex segment_locks[TOTAL_SEGMENTS];
+
     /// segmented memory for object allocation.
     heap heap_memory;
 
@@ -40,9 +43,6 @@ private:
 
     /// gc for heap cleanup.
     garbage_collector gc;
-
-    /// locks for heap segments.
-    std::mutex segment_locks[TOTAL_SEGMENTS];
 
     /// indicates whether gc is currently running.
     std::atomic<bool> gc_in_progress{false};

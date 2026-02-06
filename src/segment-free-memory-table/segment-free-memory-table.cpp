@@ -1,7 +1,7 @@
 #include "segment-free-memory-table.hpp"
 
-void segment_free_memory_table::update_segment(size_t segment_index, uint32_t free_bytes, header* free_list_head) {
-    free_mem_table.insert(segment_index, segment_info(free_bytes, free_list_head));
+void segment_free_memory_table::update_segment(size_t segment_index, header* free_list_head, uint32_t free_bytes) {
+    free_mem_table.insert(segment_index, segment_info(free_list_head, free_bytes));
 }
 
 segment_info* segment_free_memory_table::get_segment_info(size_t segment_index) noexcept {

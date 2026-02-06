@@ -2,7 +2,7 @@
 
 #include <new>
 
-thread_pool::thread_pool(size_t thread_count) : threads(nullptr), thread_count(thread_count), stop(false) {
+thread_pool::thread_pool(size_t thread_count) : stop(false), threads(nullptr), thread_count(thread_count) {
     if (thread_count == 0) {
         throw std::invalid_argument("Thread count must be greater than zero");
     }

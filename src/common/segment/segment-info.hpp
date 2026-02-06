@@ -10,11 +10,11 @@
  * @brief representation of the element inside of the free_memory_table.
 */
 struct segment_info {
-    /// number of free bytes in a segment.
-    uint32_t free_bytes;
-
     /// pointer to a head of the free list.
     header* free_list_head;
+
+    /// number of free bytes in a segment.
+    uint32_t free_bytes;
 
     /**
      * @brief creates the instance of the segment_info.
@@ -24,10 +24,10 @@ struct segment_info {
 
     /**
      * @brief creates the instance of the segment_info.
-     * @param bytes - number of free bytes.
      * @param head - pointer to a head of the free memory list.
+     * @param bytes - number of free bytes.
     */
-    segment_info(uint32_t bytes, header* head);
+    segment_info(header* head, uint32_t bytes);
 };
 
 #endif

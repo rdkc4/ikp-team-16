@@ -28,7 +28,7 @@ void thread_local_stack::init(std::string variable_name, header* heap_ptr){
         throw std::invalid_argument("Variable already exists");
     }
     var_to_idx.insert(variable_name, thread_stack.get_size());
-    thread_stack.push(thread_local_stack_entry{std::move(variable_name), scope, heap_ptr});
+    thread_stack.push(thread_local_stack_entry{.ref_to = heap_ptr, .scope = scope, .variable_name = std::move(variable_name)});
 }
 
 void thread_local_stack::reassign_ref(const std::string& variable_name, header* new_ref_to){

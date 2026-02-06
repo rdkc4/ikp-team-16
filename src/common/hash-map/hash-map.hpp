@@ -23,12 +23,16 @@ template<typename K, typename V, typename Hash = std::hash<K>>
 class hash_map {
 private:
     using map_entry = hash_map_entry<K, V>;
+
     /// list containing the linked-list of entries.
     map_entry** buckets;
+
     /// number of entries in the hash_map.
     size_t size;
+
     /// number of buckets.
     size_t capacity;
+    
     /// hash function for key hashing.
     Hash hash_function;
 

@@ -6,19 +6,19 @@ heap_manager::heap_manager(size_t hm_thread_count, size_t gc_thread_count) : hea
     for(size_t i = 0; i < SMALL_OBJECT_SEGMENTS; ++i) {
         segment& segment = heap_memory.get_small_object_segment(i);
         header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
-        free_memory_table.update_segment(i, segment.free_memory, initial_header);
+        free_memory_table.update_segment(i, initial_header, segment.free_memory);
     }
 
     for(size_t i = 0; i < MEDIUM_OBJECT_SEGMENTS; ++i) {
         segment& segment = heap_memory.get_medium_object_segment(i);
         header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
-        free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + i, segment.free_memory, initial_header);
+        free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + i, initial_header, segment.free_memory);
     }
 
     for(size_t i = 0; i < LARGE_OBJECT_SEGMENTS; ++i) {
         segment& segment = heap_memory.get_large_object_segment(i);
         header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
-        free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + i, segment.free_memory, initial_header);
+        free_memory_table.update_segment(SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + i, initial_header, segment.free_memory);
     }
 }
 

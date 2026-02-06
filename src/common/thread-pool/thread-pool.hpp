@@ -16,18 +16,23 @@
 */
 class thread_pool {
 private:
-    /// list of threads owned by thread pool.
-    std::thread* threads;
-    /// number of threads in a thread pool.
-    size_t thread_count;
-    /// queue of tasks.
-    queue<std::function<void()>> tasks;
     /// mutex for concurrent access to tasks.
     std::mutex mtx;
+
     /// condition variable for waiting/notifying.
     std::condition_variable cv;
+
     /// flag that handles stoppage of worker threads.
     bool stop;
+
+    /// queue of tasks.
+    queue<std::function<void()>> tasks;
+
+    /// list of threads owned by thread pool.
+    std::thread* threads;
+    
+    /// number of threads in a thread pool.
+    size_t thread_count;
 
     /**
      * @brief threads execute tasks from the queue.

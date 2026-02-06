@@ -13,6 +13,7 @@ constexpr uint32_t SEGMENT_SIZE = 16 * 1024 * 1024;
 struct segment {
     /// pointer to the segment's memory block.
     uint8_t* segment_memory;
+    
     /// number of bytes that are free in segment.
     uint32_t free_memory;
 

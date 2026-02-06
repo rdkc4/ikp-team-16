@@ -18,10 +18,13 @@ template<typename T>
 class queue {
 private:
     using queue_entry = queue_entry<T>;
+
     /// pointer to the front of the queue.
     queue_entry* head;
+
     /// pointer to the back of the queue.
     queue_entry* tail;
+    
     /// size of the queue.
     size_t size;
 

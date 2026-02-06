@@ -9,12 +9,14 @@
 */
 template<typename K, typename V>
 struct hash_map_entry {
-    /// key of the entry.
-    K key;
-    /// value of the entry.
-    V value;
     /// pointer to the next entry in the bucket.
     hash_map_entry* next;
+
+    /// key of the entry.
+    K key;
+
+    /// value of the entry.
+    V value;
 
     /**
      * @brief creates an instance of the hash_map entry.
@@ -22,7 +24,7 @@ struct hash_map_entry {
      * @param v - const reference to a value.
      * @details next defaults to nullptr.
     */
-    hash_map_entry(const K& k, const V& v): key(k), value(v), next(nullptr) {}
+    hash_map_entry(const K& k, const V& v): next(nullptr), key(k), value(v) {}
 
     /**
      * @brief creates an instance of the hash_map entry.
@@ -30,7 +32,7 @@ struct hash_map_entry {
      * @param v - rvalue value.
      * @details next defaults to nullptr.
     */
-    hash_map_entry(K&& k, V&& v) : key(std::move(k)), value(std::move(v)), next(nullptr) {}
+    hash_map_entry(K&& k, V&& v) : next(nullptr), key(std::move(k)), value(std::move(v)) {}
 };
 
 #endif

@@ -13,6 +13,7 @@ template<typename T>
 struct queue_entry {
     /// value of the element in the queue.
     T value;
+    
     /// pointer to the next element in the queue.
     queue_entry* next;
 
