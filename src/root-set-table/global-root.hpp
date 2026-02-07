@@ -1,6 +1,8 @@
 #ifndef GLOBAL_ROOT_HPP
 #define GLOBAL_ROOT_HPP
 
+#include <mutex>
+
 #include "../common/header/header.hpp"
 #include "../common/root-set/root-set-base.hpp"
 #include "../common/gc/gc-visitor.hpp"
@@ -12,8 +14,21 @@
 */
 class global_root final : public root_set_base {
 private:
+    /// used for global variable synchronization.
+    mutable std::mutex global_mutex;
+
     /// pointer to a header of the variable on the heap
     header* global_variable_ptr;
+
+    /**
+     * @brief getter for the variable.
+     * @warning must be called when lock is held already.
+     * @returns pointer to a header of the variable.
+    */
+    header* get_global_variable_unlocked() noexcept;
+
+    /// allowing gc to access getter for the variable.
+    friend class garbage_collector;
 
 public:
     /**
@@ -21,18 +36,6 @@ public:
      * @param var_ptr - pointer to a header of the global variable on the heap
     */
     global_root(header* var_ptr);
-
-    /**
-     * @brief getter for the global variable.
-     * @returns pointer to a header of the global variable on the heap
-    */
-    header* get_global_variable() noexcept;
-
-    /**
-     * @brief getter for the global variable.
-     * @returns const pointer to a header of the global variable on the heap
-    */
-    const header* get_global_variable() const noexcept;
 
     /**
      * @brief setter for the global variable.

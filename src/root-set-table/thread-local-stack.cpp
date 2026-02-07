@@ -1,5 +1,6 @@
 #include "thread-local-stack.hpp"
 
+#include <mutex>
 #include <stdexcept>
 #include <utility>
 
@@ -24,6 +25,8 @@ thread_local_stack& thread_local_stack::operator=(thread_local_stack&& other) no
 }
 
 void thread_local_stack::init(std::string variable_name, header* heap_ptr){
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
+
     if(var_to_idx.contains(variable_name)){
         throw std::invalid_argument("Variable already exists");
     }
@@ -32,6 +35,8 @@ void thread_local_stack::init(std::string variable_name, header* heap_ptr){
 }
 
 void thread_local_stack::reassign_ref(const std::string& variable_name, header* new_ref_to){
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
+
     if(!var_to_idx.contains(variable_name)){
         throw std::invalid_argument("Variable doesn't exist");
     }
@@ -40,6 +45,8 @@ void thread_local_stack::reassign_ref(const std::string& variable_name, header* 
 }
 
 void thread_local_stack::remove_ref(const std::string& variable_name){
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
+
     if(!var_to_idx.contains(variable_name)){
         throw std::invalid_argument("Variable doesn't exist");
     }
@@ -48,10 +55,13 @@ void thread_local_stack::remove_ref(const std::string& variable_name){
 }
 
 void thread_local_stack::push_scope() noexcept {
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
     ++scope;
 }
 
 void thread_local_stack::pop_scope(bool destr){
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
+
     if((scope <= 1 && !destr) || scope == 0){
         return;
     }
@@ -63,22 +73,11 @@ void thread_local_stack::pop_scope(bool destr){
     --scope;
 }
 
-indexed_stack<thread_local_stack_entry>& thread_local_stack::get_thread_stack() noexcept {
-    return thread_stack;
-}
-
-const indexed_stack<thread_local_stack_entry>& thread_local_stack::get_thread_stack() const noexcept {
-    return thread_stack;
-}
-
-const thread_local_stack_entry* thread_local_stack::begin() const noexcept {
-    return thread_stack.begin();
-}
-
-const thread_local_stack_entry* thread_local_stack::end() const noexcept {
-    return thread_stack.end();
-}
-
 void thread_local_stack::accept(gc_visitor& visitor) noexcept {
+    std::lock_guard<std::mutex> tls_lock(tls_mutex);
     visitor.visit(*this);
+}
+
+indexed_stack<thread_local_stack_entry>& thread_local_stack::get_thread_stack_unlocked() noexcept {
+    return thread_stack;
 }

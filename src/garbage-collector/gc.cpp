@@ -10,7 +10,7 @@ void garbage_collector::collect(root_set_table& root_set, heap& heap_memory) noe
 }
 
 void garbage_collector::visit(thread_local_stack& stack){
-    auto& stack_data = stack.get_thread_stack();
+    auto& stack_data = stack.get_thread_stack_unlocked();
     for(thread_local_stack_entry& entry : stack_data) {
         if(entry.ref_to){
             entry.ref_to->set_marked(true);
@@ -19,14 +19,14 @@ void garbage_collector::visit(thread_local_stack& stack){
 }
 
 void garbage_collector::visit(global_root& global){
-    header* gvar = global.get_global_variable();
+    header* gvar = global.get_global_variable_unlocked();
     if(gvar){
         gvar->set_marked(true);
     }
 }
 
 void garbage_collector::visit(register_root& reg){
-    header* reg_var = reg.get_register_variable();
+    header* reg_var = reg.get_register_variable_unlocked();
     if(reg_var){
         reg_var->set_marked(true);
     }
@@ -44,10 +44,10 @@ void garbage_collector::mark(root_set_table& root_set) noexcept {
 
     for(size_t i = 0; i < capacity; ++i) {
         for(auto* root = buckets[i]; root; root = root->next){
-            if(!root->value) continue;
-
-            gc_thread_pool.enqueue([&, root_value = root->value.get()]{
-                root_value->accept(*this);
+            gc_thread_pool.enqueue([&, &root_value = root->value]{
+                if(root_value){
+                    root_value->accept(*this);
+                }
                 completion_latch.count_down();
             });
             

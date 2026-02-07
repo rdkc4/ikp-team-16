@@ -2,6 +2,7 @@
 #define THREAD_LOCAL_STACK_HPP
 
 #include <string>
+#include <mutex>
 
 #include "../common/indexed-stack/indexed-stack.hpp"
 #include "../common/hash-map/hash-map.hpp"
@@ -16,6 +17,9 @@
 */
 class thread_local_stack final : public root_set_base {
 private:
+    /// used for tls synchronization.
+    mutable std::mutex tls_mutex; 
+
     /// id of the last pushed scope.
     size_t scope;
 
@@ -24,6 +28,16 @@ private:
 
     /// mapping the variable name to its index inside of the thread_stack.
     hash_map<std::string, size_t> var_to_idx;
+
+    /**
+     * @brief getter for the thread_stack.
+     * @warning must be called when lock is held already.
+     * @returns reference to thread_stack.
+    */
+    indexed_stack<thread_local_stack_entry>& get_thread_stack_unlocked() noexcept;
+
+    /// allowing gc to access getter for the variable.
+    friend class garbage_collector;
 
 public:
     /**
@@ -100,30 +114,6 @@ public:
      * @note simulation purposes.
     */
     void pop_scope(bool destr = false);
-
-    /**
-     * @brief getter for the thread_stack.
-     * @returns reference to thread_stack.
-    */
-    indexed_stack<thread_local_stack_entry>& get_thread_stack() noexcept;
-
-    /**
-     * @brief getter for the thread_stack.
-     * @returns const reference to thread_stack.
-    */
-    const indexed_stack<thread_local_stack_entry>& get_thread_stack() const noexcept;
-
-    /** 
-     * @brief getter for the bottom element of the stack.
-     * @returns the const pointer to the bottom element of the stack.
-    */
-    const thread_local_stack_entry* begin() const noexcept;
-
-    /** 
-     * @brief getter for the end of the stack.
-     * @returns the const pointer to the end of the stack.
-    */
-    const thread_local_stack_entry* end() const noexcept;
 
     /**
      * @brief accepts the gc visitor.

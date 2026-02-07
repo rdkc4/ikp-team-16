@@ -29,6 +29,9 @@ private:
     /// locks for heap segments.
     std::mutex segment_locks[TOTAL_SEGMENTS];
 
+    /// locks the root-set-table.
+    std::mutex root_set_mutex;
+
     /// segmented memory for object allocation.
     heap heap_memory;
 
@@ -148,6 +151,11 @@ public:
      * @param key - const reference to a name of the root-set-table.
     */
     void remove_root(const std::string& key);
+
+    /**
+     * @brief removes all roots from the root-set-table.
+    */
+    void clear_roots() noexcept;
 
     /**
      * @brief starts the garbage collection.

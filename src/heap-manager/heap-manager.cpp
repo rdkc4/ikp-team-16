@@ -1,6 +1,7 @@
 #include "heap-manager.hpp"
 
 #include <latch>
+#include <mutex>
 
 heap_manager::heap_manager(size_t hm_thread_count, size_t gc_thread_count) : heap_manager_thread_pool(hm_thread_count), gc(gc_thread_count) {
     for(size_t i = 0; i < SMALL_OBJECT_SEGMENTS; ++i) {
@@ -59,20 +60,29 @@ header* heap_manager::allocate(uint32_t bytes){
 }
 
 void heap_manager::add_root(std::string key, std::unique_ptr<root_set_base> base){
+    std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
     root_set.add_root(std::move(key), std::move(base));
 }
 
 root_set_base* heap_manager::get_root(const std::string& key) {
+    std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
     return root_set.get_root(key);
 }
 
 void heap_manager::remove_root(const std::string& key){
+    std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
     root_set.remove_root(key);
 }
 
-void heap_manager::collect_garbage(){
-    std::unique_lock<std::mutex> locks[TOTAL_SEGMENTS];
+void heap_manager::clear_roots() noexcept {
+    std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
+    root_set.clear();
+}
 
+void heap_manager::collect_garbage(){
+    std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
+
+    std::unique_lock<std::mutex> locks[TOTAL_SEGMENTS];
     for(size_t i = 0; i < TOTAL_SEGMENTS; ++i){
         locks[i] = std::unique_lock<std::mutex>(segment_locks[i]);
     }

@@ -1,6 +1,8 @@
 #ifndef REGISTER_ROOT_HPP
 #define REGISTER_ROOT_HPP
 
+#include <mutex>
+
 #include "../common/header/header.hpp"
 #include "../common/root-set/root-set-base.hpp"
 #include "../common/gc/gc-visitor.hpp"
@@ -12,8 +14,21 @@
 */
 class register_root final : public root_set_base {
 private:
+    /// used for register synchronization.
+    mutable std::mutex register_mutex;
+
     /// pointer to a header of the register variable on the heap.
     header* register_variable;
+
+    /**
+     * @brief getter for the variable.
+     * @warning must be called when lock is held already.
+     * @returns pointer to a header of the variable.
+    */
+    header* get_register_variable_unlocked() noexcept;
+
+    /// allowing gc to access getter for the variable.
+    friend class garbage_collector;
 
 public:
     /**
@@ -21,18 +36,6 @@ public:
      * @param var_ptr - pointer to a header of the register variable on the heap.
     */
     register_root(header* var_ptr);
-
-    /**
-     * @brief getter for the register variable
-     * @returns pointer to a header of the register variable on the heap.
-    */
-    header* get_register_variable() noexcept;
-
-    /**
-     * @brief getter for the register variable
-     * @returns const pointer to a header of the register variable on the heap.
-    */
-    const header* get_register_variable() const noexcept;
 
     /**
      * @brief setter for the register variable
