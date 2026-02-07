@@ -1,8 +1,14 @@
 #ifndef ALLOCATORS_HPP
 #define ALLOCATORS_HPP
 
+#include <format>
+#include <memory>
 #include <string>
+#include <latch>
 #include <random>
+#include <utility>
+#include <concepts>
+#include <iostream>
 
 #include "../heap-manager/heap-manager.hpp"
 #include "../common/thread-pool/thread-pool.hpp"
@@ -14,19 +20,19 @@
 size_t constexpr TLS_ALLOC_STRESS_THRESHOLD = 10000;
 
 /// number of scopes per tls for stress mode.
-size_t constexpr TLS_STACK_COUNT_STRESS = 10;
+size_t constexpr TLS_SCOPE_COUNT_STRESS = 10;
 
 /// number of allocations per scope for tls in stress mode.
-size_t constexpr TLS_ALLOC_STRESS_THRESHOLD_PER_STACK = TLS_ALLOC_STRESS_THRESHOLD / TLS_STACK_COUNT_STRESS;
+size_t constexpr TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE = TLS_ALLOC_STRESS_THRESHOLD / TLS_SCOPE_COUNT_STRESS;
 
 /// number of allocations per tls in relaxed mode.
 size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD = 1000;
 
 /// number of scopes per tls in relaxed mode.
-size_t constexpr TLS_STACK_COUNT_RELAXED = 10;
+size_t constexpr TLS_SCOPE_COUNT_RELAXED = 10;
 
 /// number of allocations per scope for tls in relaxed mode.
-size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD_PER_STACK = TLS_ALLOC_RELAXED_THRESHOLD / TLS_STACK_COUNT_RELAXED;
+size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD_PER_SCOPE = TLS_ALLOC_RELAXED_THRESHOLD / TLS_SCOPE_COUNT_RELAXED;
 
 /// number of allocations per global in stress mode.
 size_t constexpr GLOBAL_ALLOC_STRESS_THRESHOLD = 100;
@@ -39,6 +45,8 @@ size_t constexpr REGISTER_ALLOC_STRESS_THRESHOLD = 100;
 
 /// number of allocations per register in relaxed mode.
 size_t constexpr REGISTER_ALLOC_RELAXED_THRESHOLD = 20;
+
+enum class simulation_mode { stress, relaxed };
 
 /**
  * @class allocators
@@ -58,64 +66,138 @@ private:
     /// distribution for object size category.
     static thread_local std::uniform_int_distribution<int> category_dist;
 
-    /**
-     * @brief creates the thread local stack root.
-     * @param tls_root_key - key for the thread local stack.
-     * @returns pointer to a thread local stack.
-    */
-    thread_local_stack* create_tls_root(std::string tls_root_key);
+    /// distribution for small object size.
+    static thread_local std::uniform_int_distribution<uint32_t> small_dist;
 
-    /**
-     * @brief creates the global root.
-     * @param global_root_key - key for the global root.
-     * @returns pointer to a global root.
-    */
-    global_root* create_global_root(std::string global_root_key);
+    /// distribution for medium object size.
+    static thread_local std::uniform_int_distribution<uint32_t> medium_dist;
 
-    /**
-     * @brief creates the register root.
-     * @param register_root_key - key for the register root.
-     * @returns pointer to a register root.
-    */
-    register_root* create_register_root(std::string register_root_key);
+    /// distribution for large object size.
+    static thread_local std::uniform_int_distribution<uint32_t> large_dist;
 
     /**
      * @brief simulates allocation of a thread, stress mode.
      * @param tls - pointer to a thread local stack.
+     * @param scope_count - number of scopes.
+     * @param allocs_per_scope - number of allocations per scope.
     */
-    void simulate_tls_alloc_stress(thread_local_stack* tls);
-
-    /**
-     * @brief simulates allocation of a thread, relaxed mode.
-     * @param tls - pointer to a thread local stack.
-    */
-    void simulate_tls_alloc_relaxed(thread_local_stack* tls);
+    void simulate_tls_alloc(thread_local_stack* tls, size_t scope_count, size_t allocs_per_scope);
 
     /**
      * @brief simulates allocation of a global variable, stress mode.
      * @param global - pointer to a global root.
+     * @param global_allocs - number of allocations for global variable.
     */
-    void simulate_global_alloc_stress(global_root* global);
-
-    /**
-     * @brief simulates allocation of a global variable, relaxed mode.
-     * @param global - pointer to a global root.
-    */
-    void simulate_global_alloc_relaxed(global_root* global);
+    void simulate_global_alloc(global_root* global, size_t global_allocs);
 
     /**
      * @brief simulates allocation of a register variable, stress mode.
      * @param register - pointer to a register root.
+     * @param register_allocs - number of allocations for register.
     */
-    void simulate_register_alloc_stress(register_root* reg);
+    void simulate_register_alloc(register_root* reg, size_t register_allocs);
 
     /**
-     * @brief simulates allocation of a register variable, relaxed mode.
-     * @param register - pointer to a register root.
+     * @brief creates the root for root-set-table.
+     * @tparam root - type of the root.
+     * @tparam ...args - types of arguments for root construction.
+     * @param key - key of the root.
+     * @param arguments - arguments for the construction.
+     * @returns pointer to a root-set-table element. 
     */
-    void simulate_register_alloc_relaxed(register_root* reg);
+    template <typename root, typename... args>
+    requires std::derived_from<root, root_set_base>
+    root* create_root(const std::string& key, args&&... arguments){
+        auto root_ptr = std::make_unique<root>(std::forward<args>(arguments)...);
+        heap_manager_ref.add_root(key, std::move(root_ptr));
+        return static_cast<root*>(heap_manager_ref.get_root(key));
+    }
 
     /**
+     * @brief adds simulation to queue.
+     * @tparam fn - type of the function.
+     * @param label - name of caller.
+     * @param index - index of the caller.
+     * @param simulate - simulation function.
+     * @param completion_latch - synchronization for simulation.
+    */
+    template <typename fn>
+    void enqueue_simulation(const std::string& label, size_t index, fn&& simulate, std::latch& completion_latch){
+        alloc_thread_pool.enqueue([label, index, simulate = std::forward<fn>(simulate), &completion_latch]{
+            std::cout << std::format("{} {} is allocating...\n", label, index);
+            simulate();
+            std::cout << std::format("{} {} finished\n", label, index);
+            
+            completion_latch.count_down();
+        });
+    }
+
+    /**
+     * @brief getter for the name of the mode of simulation.
+     * @param mode - simulation mode.
+     * @returns name of the mode.
+    */
+    static constexpr const char* simulation_mode_name(simulation_mode mode) {
+        switch (mode) {
+            case simulation_mode::stress: return "stress";
+            case simulation_mode::relaxed: return "relaxed";
+        }
+        std::unreachable();
+    }
+
+    /**
+     * @brief getter for tls scope count.
+     * @param mode - mode of the simulation.
+     * @returns number of scopes for tls.
+    */
+    static constexpr size_t tls_scope_count(simulation_mode mode){
+        switch(mode){
+            case simulation_mode::stress: return TLS_SCOPE_COUNT_STRESS;
+            case simulation_mode::relaxed: return TLS_SCOPE_COUNT_RELAXED;
+        }
+        std::unreachable();
+    }
+
+    /**
+     * @brief getter for tls allocation count per scope.
+     * @param mode - mode of the simulation.
+     * @returns number of allocation for tls per scope.
+    */
+    static constexpr size_t tls_allocs_per_scope(simulation_mode mode){
+        switch(mode){
+            case simulation_mode::stress: return TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE;
+            case simulation_mode::relaxed: return TLS_ALLOC_RELAXED_THRESHOLD_PER_SCOPE;
+        }
+        std::unreachable();
+    }
+
+    /**
+     * @brief getter for global allocation count.
+     * @param mode - mode of the simulation.
+     * @returns number of allocation for global variable.
+    */
+    static constexpr size_t global_alloc_count(simulation_mode mode){
+        switch(mode){
+            case simulation_mode::stress: return GLOBAL_ALLOC_STRESS_THRESHOLD;
+            case simulation_mode::relaxed: return GLOBAL_ALLOC_RELAXED_THRESHOLD;
+        }
+        std::unreachable();
+    }
+
+    /**
+     * @brief getter for register allocation count.
+     * @param mode - mode of the simulation.
+     * @returns number of allocation for register.
+    */
+    static constexpr size_t register_alloc_count(simulation_mode mode){
+        switch(mode){
+            case simulation_mode::stress: return REGISTER_ALLOC_STRESS_THRESHOLD;
+            case simulation_mode::relaxed: return REGISTER_ALLOC_RELAXED_THRESHOLD;
+        }
+        std::unreachable();
+    }
+
+    /** 
      * @brief generates the size of the object.
      * @returns amount of bytes object needs for allocation.
     */
@@ -139,16 +221,9 @@ public:
      * @param tls_count - number of threads that are allocating objects.
      * @param global_count - number of global variables that are referencing objects.
      * @param register_count - number of register variables that are referencing objects.
+     * @param mode - mode of the simulation.
     */
-    void simulate_alloc_stress(size_t tls_count, size_t global_count, size_t register_count);
-
-    /**
-     * @brief starts the allocation simulation, relaxed mode.
-     * @param tls_count - number of threads that are allocating objects.
-     * @param global_count - number of global variables that are allocating objects.
-     * @param register_count - number of register variables that are allocating objects.
-    */
-    void simulate_alloc_relaxed(size_t tls_count, size_t global_count, size_t register_count);
+    void simulate_alloc(size_t tls_count, size_t global_count, size_t register_count, simulation_mode mode);
 
 };
 

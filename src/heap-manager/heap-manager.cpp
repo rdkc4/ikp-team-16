@@ -266,7 +266,7 @@ void heap_manager::coalesce_segments(){
     std::latch completion_latch{TOTAL_SEGMENTS};
 
     for(size_t i = 0; i < TOTAL_SEGMENTS; ++i){
-        heap_manager_thread_pool.enqueue([this, i, &completion_latch] -> void {
+        heap_manager_thread_pool.enqueue([&, i] -> void {
             coalesce_segment(i);
             completion_latch.count_down();
         });

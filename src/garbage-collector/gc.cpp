@@ -81,7 +81,7 @@ void garbage_collector::sweep(heap& heap_memory) noexcept {
     std::latch completion_latch(TOTAL_SEGMENTS);
 
     auto enqueue_segment_sweep = [&](segment& segment) -> void {
-        gc_thread_pool.enqueue([&, seg=&segment] -> void {
+        gc_thread_pool.enqueue([&, seg = &segment] -> void {
             sweep_segment(*seg);
             completion_latch.count_down();
         });
