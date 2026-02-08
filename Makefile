@@ -1,5 +1,5 @@
 CXX = clang++
-CXXFLAGS = -std=c++23 -g -O1 \
+CXXFLAGS = -std=c++23 -g -O1 -pthread \
            -Wall -Wextra -Wpedantic -Werror \
            -fno-omit-frame-pointer \
            -fno-optimize-sibling-calls \
