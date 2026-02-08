@@ -34,15 +34,11 @@ header* heap_manager::allocate(uint32_t bytes){
     if(bytes == 0) return nullptr;
     bytes = (bytes + 15) & ~15;
 
-    constexpr size_t FAST_ATTEMPTS = 3;
-
-    for(size_t i = 0; i < FAST_ATTEMPTS; ++i){
-        int segment_index = find_suitable_segment(bytes);
-        if(segment_index >= 0){
-            std::lock_guard<std::mutex> seg_lock(segment_locks[segment_index]);
-            if(header* obj = allocate_from_segment(static_cast<size_t>(segment_index), bytes))
-                return obj;
-        }
+    int segment_index = find_suitable_segment(bytes);
+    if(segment_index >= 0){
+        std::lock_guard<std::mutex> seg_lock(segment_locks[segment_index]);
+        if(header* obj = allocate_from_segment(static_cast<size_t>(segment_index), bytes))
+            return obj;
     }
     
     if(should_run_gc()){
@@ -58,7 +54,7 @@ header* heap_manager::allocate(uint32_t bytes){
         gc_in_progress.wait(true);
     }
 
-    int segment_index = find_suitable_segment(bytes);
+    segment_index = find_suitable_segment(bytes);
     if(segment_index >= 0){
         std::lock_guard<std::mutex> seg_lock(segment_locks[segment_index]);
         return allocate_from_segment(static_cast<size_t>(segment_index), bytes);

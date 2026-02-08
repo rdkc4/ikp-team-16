@@ -14,7 +14,7 @@ thread_pool::thread_pool(size_t thread_count) : stop(false), threads(nullptr), t
     size_t i = 0;
     try {
         for (; i < thread_count; ++i) {
-            new (threads + i) std::thread([this] { worker(); });
+            new (threads + i) std::thread([this] -> void { worker(); });
         }
     } catch (...) {
         for (size_t j = 0; j < i; ++j) {
