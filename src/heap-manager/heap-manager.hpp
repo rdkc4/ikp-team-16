@@ -5,6 +5,9 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <chrono>
+#include <stop_token>
+#include <thread>
 
 #include "../heap/heap.hpp"
 #include "../segment-free-memory-table/segment-free-memory-table.hpp"
@@ -59,6 +62,30 @@ private:
     /// large object segment that was used last, default to last.
     std::atomic<size_t> last_large_segment{SMALL_OBJECT_SEGMENTS + MEDIUM_OBJECT_SEGMENTS + LARGE_OBJECT_SEGMENTS - 1};
     
+    /// last time garbage collection was done.
+    std::atomic<uint64_t> last_gc_time_ms;
+
+    /// minimum time between GC runs.
+    static constexpr std::chrono::milliseconds MIN_GC_INTERVAL{100};
+
+    /// periodic gc interval.
+    static constexpr std::chrono::seconds PERIODIC_GC_INTERVAL{1};
+
+    /// background gc thread.
+    std::jthread gc_timer_thread;
+
+    /**
+     * @brief checks if enough time has passed since last garbage collection.
+     * @returns true if gc should run, false otherwise.
+    */
+    bool should_run_gc() const noexcept;
+
+    /**
+     * @brief periodic garbage collection loop.
+     * @param stop_token - token for stopping periodic gc.
+    */
+    void periodic_gc_loop(std::stop_token stop_token);
+
     /**
      * @brief getter for the index of the segment based on object size category.
      * @param segment_index - index of the segment 0 to (n-1).

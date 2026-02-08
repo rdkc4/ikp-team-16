@@ -6,6 +6,8 @@
 /** 
  * @struct hash_map_entry
  * @brief the structure of the element inside of the hash_map.
+ * @tparam K - type of the key.
+ * @tparam V - type of the value.
 */
 template<typename K, typename V>
 struct hash_map_entry {

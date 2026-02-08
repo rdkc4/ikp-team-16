@@ -7,7 +7,6 @@
 
 #include "../header/header.hpp"
 
-
 segment::segment(): segment_memory(static_cast<uint8_t*>(::operator new(SEGMENT_SIZE, std::align_val_t{alignof(std::max_align_t)}))){
     initialize();
 }

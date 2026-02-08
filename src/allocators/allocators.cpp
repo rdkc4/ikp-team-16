@@ -26,7 +26,7 @@ void allocators::simulate_alloc(size_t tls_count, size_t global_count, size_t re
     const size_t reg_allocs = register_alloc_count(mode);
 
     for(size_t i = 0; i < tls_count; ++i){
-        auto tls = create_root<thread_local_stack>("t" + std::to_string(i), 1024);
+        auto tls = create_root<thread_local_stack>("t" + std::to_string(i), tls_map_capacity(mode));
         enqueue_simulation("TLS", i, [this, tls, tls_scopes, tls_allocs] -> void {
             simulate_tls_alloc(tls, tls_scopes, tls_allocs);
         }, completion_latch);
@@ -48,7 +48,15 @@ void allocators::simulate_alloc(size_t tls_count, size_t global_count, size_t re
 
     completion_latch.wait();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_time);
-    std::cout<< std::format("Total execution time: {} ms ({} s)\n", duration.count(), duration.count() / 1000.0);
+
+    const size_t total_allocs = tls_scopes * tls_allocs * tls_count + global_allocs * global_count + reg_allocs * register_count;
+    std::cout << std::format("Total allocation count: {} allocations\n", total_allocs);
+    std::cout << std::format("Total execution time: {} ms ({} s)\n", duration.count(), duration.count() / 1000.0);
+
+    std::cout << std::format("Allocation throughput: {:.2f} allocs/ms ({:.2f} allocs/s)\n", 
+        static_cast<double>(total_allocs) / duration.count(), 
+        static_cast<double>(total_allocs) / duration.count() * 1000
+    );
 
     std::cout << "Cleaning up after simulation\n";
     heap_manager_ref.clear_roots();

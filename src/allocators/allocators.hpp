@@ -17,35 +17,45 @@
 #include "../root-set-table/register-root.hpp"
 
 /// number of allocations per tls in stress mode.
-size_t constexpr TLS_ALLOC_STRESS_THRESHOLD = 10000;
+size_t constexpr TLS_ALLOC_STRESS_THRESHOLD = 8192;
 
 /// number of scopes per tls for stress mode.
-size_t constexpr TLS_SCOPE_COUNT_STRESS = 10;
+size_t constexpr TLS_SCOPE_COUNT_STRESS = 8;
 
 /// number of allocations per scope for tls in stress mode.
 size_t constexpr TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE = TLS_ALLOC_STRESS_THRESHOLD / TLS_SCOPE_COUNT_STRESS;
 
+/// capacity of the hash-map that maps tls variable to its index in stress mode.
+size_t constexpr TLS_MAP_CAPACITY_STRESS = TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE << 1;
+
 /// number of allocations per tls in relaxed mode.
-size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD = 1000;
+size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD = 1024;
 
 /// number of scopes per tls in relaxed mode.
-size_t constexpr TLS_SCOPE_COUNT_RELAXED = 10;
+size_t constexpr TLS_SCOPE_COUNT_RELAXED = 8;
 
 /// number of allocations per scope for tls in relaxed mode.
 size_t constexpr TLS_ALLOC_RELAXED_THRESHOLD_PER_SCOPE = TLS_ALLOC_RELAXED_THRESHOLD / TLS_SCOPE_COUNT_RELAXED;
 
+/// capacity of the hash-map that maps tls variable to its index in relaxed mode.
+size_t constexpr TLS_MAP_CAPACITY_RELAXED = TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE << 1;
+
 /// number of allocations per global in stress mode.
-size_t constexpr GLOBAL_ALLOC_STRESS_THRESHOLD = 100;
+size_t constexpr GLOBAL_ALLOC_STRESS_THRESHOLD = 128;
 
 /// number of allocations per global in relaxed mode.
-size_t constexpr GLOBAL_ALLOC_RELAXED_THRESHOLD = 20;
+size_t constexpr GLOBAL_ALLOC_RELAXED_THRESHOLD = 32;
 
 /// number of allocations per register in stress mode.
-size_t constexpr REGISTER_ALLOC_STRESS_THRESHOLD = 100;
+size_t constexpr REGISTER_ALLOC_STRESS_THRESHOLD = 128;
 
 /// number of allocations per register in relaxed mode.
-size_t constexpr REGISTER_ALLOC_RELAXED_THRESHOLD = 20;
+size_t constexpr REGISTER_ALLOC_RELAXED_THRESHOLD = 32;
 
+/**
+ * @enum simulation_mode
+ * @brief defines the type of the simulation.
+*/
 enum class simulation_mode { stress, relaxed };
 
 /**
@@ -167,6 +177,19 @@ private:
         switch(mode){
             case simulation_mode::stress: return TLS_ALLOC_STRESS_THRESHOLD_PER_SCOPE;
             case simulation_mode::relaxed: return TLS_ALLOC_RELAXED_THRESHOLD_PER_SCOPE;
+        }
+        std::unreachable();
+    }
+
+    /**
+     * @brief getter for the initial capacity of the hash-map that maps tls variable to its index.
+     * @param mode - mode of the simulation.
+     * @returns initial capacity of the hash-map.
+    */
+    static constexpr size_t tls_map_capacity(simulation_mode mode){
+        switch(mode){
+            case simulation_mode::stress: return TLS_MAP_CAPACITY_STRESS;
+            case simulation_mode::relaxed: return TLS_MAP_CAPACITY_RELAXED;
         }
         std::unreachable();
     }

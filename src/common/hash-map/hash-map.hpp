@@ -12,6 +12,9 @@
 /// initial number of buckets.
 constexpr size_t DEFAULT_MAP_CAPACITY = 8;
 
+/// load factor for resizing.
+constexpr double MAX_LOAD_FACTOR = 0.75;
+
 /**
  * @class hash_map
  * @brief implementation of the hash_map; using constant number of buckets and chaining.
@@ -64,6 +67,45 @@ private:
         for(size_t i = 0; i < capacity; ++i){
             delete_entries_from_bucket(buckets[i]);
         }
+    }
+
+    /**
+     * @brief calculates the current load factor.
+     * @returns load factor.
+    */
+    double load_factor() const noexcept {
+        return static_cast<double>(size) / static_cast<double>(capacity);
+    }
+
+    /**
+     * @brief resizes the hash_map and rehashes all entries.
+     * @details doubles the capacity and redistributes all entries.
+    */
+    void resize(){
+        size_t new_capacity = capacity * 2;
+        map_entry** new_buckets = static_cast<map_entry**>(::operator new (sizeof(map_entry*) * new_capacity));
+
+        for(size_t i = 0; i < new_capacity; ++i){
+            new_buckets[i] = nullptr;
+        }
+
+        for(size_t i = 0; i < capacity; ++i){
+            map_entry* current = buckets[i];
+            while(current){
+                map_entry* next = current->next;
+                size_t new_bucket_index = hash_function(current->key) % new_capacity;
+            
+                current->next = new_buckets[new_bucket_index];
+                new_buckets[new_bucket_index] = current;
+
+                current = next;
+            }
+        }
+
+        ::operator delete(buckets);
+
+        buckets = new_buckets;
+        capacity = new_capacity;
     }
 
 public:
@@ -172,6 +214,10 @@ public:
         new_entry->next = buckets[bucket_idx];
         buckets[bucket_idx] = new_entry;
         ++size;
+
+        if(load_factor() > MAX_LOAD_FACTOR){
+            resize();
+        }
     }
 
     /**

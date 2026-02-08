@@ -1,6 +1,7 @@
 #ifndef INDEXED_STACK_HPP
 #define INDEXED_STACK_HPP
 
+#include <cassert>
 #include <cstddef>
 #include <new>
 #include <stdexcept>
@@ -13,7 +14,7 @@ constexpr size_t DEFAULT_STACK_CAPACITY = 8;
 /**
  * @class indexed_stack
  * @brief hybrid implementation of an array and stack.
- * T - type of the data stored on the stack.
+ * @tparam T - type of the data stored on the stack.
 */
 template<typename T>
 class indexed_stack {
@@ -29,12 +30,9 @@ private:
      * @brief frees elements on the stack that are in certain range.
      * @param start - starting index.
      * @param end - ending index (excluded).
-     * @throws std::invalid_argument when start index is bigger than end, or when end is bigger than size. 
     */
-    void delete_range(size_t start, size_t end) {
-        if(start > end || end > size){
-            throw std::invalid_argument("Invalid delete range");
-        }
+    void delete_range(size_t start, size_t end) noexcept {
+        assert(start <= end && end <= size);
         for(size_t i = start; i < end; ++i){
             data[i].~T();
         }
@@ -87,9 +85,11 @@ public:
      * @brief destroys the indexed_stack object.
      * @details frees all elements on the stack, frees the memory allocated for the stack.
     */
-    ~indexed_stack() {
-        delete_range(0, size);
-        ::operator delete(data);
+    ~indexed_stack() noexcept {
+        if(data){
+            delete_range(0, size);
+            ::operator delete(data);
+        }
     }
 
     /// deleted copy constructor.

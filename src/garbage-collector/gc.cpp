@@ -1,10 +1,12 @@
 #include "gc.hpp"
 
 #include <latch>
+#include <iostream>
 
 garbage_collector::garbage_collector(size_t thread_count) : gc_thread_pool(thread_count) {}
 
 void garbage_collector::collect(root_set_table& root_set, heap& heap_memory) noexcept {
+    std::cout << "Collecting garbage...\n";
     mark(root_set);
     sweep(heap_memory);
 }

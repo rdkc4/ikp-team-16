@@ -1,9 +1,16 @@
 #include "heap-manager.hpp"
 
+#include <condition_variable>
 #include <latch>
-#include <mutex>
 
-heap_manager::heap_manager(size_t hm_thread_count, size_t gc_thread_count) : heap_manager_thread_pool(hm_thread_count), gc(gc_thread_count) {
+heap_manager::heap_manager(size_t hm_thread_count, size_t gc_thread_count) 
+    : heap_manager_thread_pool(hm_thread_count), 
+      gc(gc_thread_count), 
+      gc_timer_thread([this](std::stop_token st) -> void {periodic_gc_loop(st); }) {
+
+    auto now = std::chrono::high_resolution_clock::now();
+    last_gc_time_ms.store(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count(), std::memory_order_release);
+
     for(size_t i = 0; i < SMALL_OBJECT_SEGMENTS; ++i) {
         segment& segment = heap_memory.get_small_object_segment(i);
         header* initial_header = reinterpret_cast<header*>(segment.segment_memory);
@@ -38,16 +45,17 @@ header* heap_manager::allocate(uint32_t bytes){
         }
     }
     
-    bool expected = false;
-    if(gc_in_progress.compare_exchange_strong(expected, true, std::memory_order_acq_rel)){
-        collect_garbage();
-        gc_in_progress.store(false, std::memory_order_release);
-        gc_in_progress.notify_all();
-    }
-    else {
-        while(gc_in_progress.load(std::memory_order_acquire)){
-            gc_in_progress.wait(true);
+    if(should_run_gc()){
+        bool expected = false;
+        if(gc_in_progress.compare_exchange_strong(expected, true, std::memory_order_acq_rel)){
+            collect_garbage();
+            gc_in_progress.store(false, std::memory_order_release);
+            gc_in_progress.notify_all();
         }
+    }
+
+    while(gc_in_progress.load(std::memory_order_acquire)){
+        gc_in_progress.wait(true);
     }
 
     int segment_index = find_suitable_segment(bytes);
@@ -80,6 +88,11 @@ void heap_manager::clear_roots() noexcept {
 }
 
 void heap_manager::collect_garbage(){
+    last_gc_time_ms.store(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch()
+        ).count(),std::memory_order_release
+    );
     std::lock_guard<std::mutex> root_set_lock(root_set_mutex);
 
     std::unique_lock<std::mutex> locks[TOTAL_SEGMENTS];
@@ -89,6 +102,35 @@ void heap_manager::collect_garbage(){
 
     gc.collect(root_set, heap_memory);
     coalesce_segments();
+}
+
+bool heap_manager::should_run_gc() const noexcept {
+    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+    auto last_ms = last_gc_time_ms.load(std::memory_order_acquire);
+    return (now_ms - last_ms) >= MIN_GC_INTERVAL.count();
+}
+
+void heap_manager::periodic_gc_loop(std::stop_token stop_token){
+    std::mutex periodic_gc_mutex;
+    std::condition_variable gc_cv;
+
+    std::stop_callback stop_cb(stop_token, [&gc_cv] -> void { gc_cv.notify_one(); });
+
+    while(!stop_token.stop_requested()){
+        std::unique_lock<std::mutex> gc_lock(periodic_gc_mutex);
+        gc_cv.wait_for(gc_lock, PERIODIC_GC_INTERVAL);
+
+        if(stop_token.stop_requested()) break;
+
+        if(!should_run_gc()) continue;
+
+        bool expected = false;
+        if(gc_in_progress.compare_exchange_strong(expected, true, std::memory_order_acq_rel)){
+            collect_garbage();
+            gc_in_progress.store(false, std::memory_order_release);
+            gc_in_progress.notify_all();
+        }
+    }
 }
 
 size_t heap_manager::get_segment_category_index(size_t segment_index) const noexcept {
