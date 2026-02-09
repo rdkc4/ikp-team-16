@@ -5,6 +5,10 @@ CXXFLAGS = -std=c++23 -g -O1 -pthread \
            -fno-optimize-sibling-calls \
            -D_GLIBCXX_ASSERTIONS
 
+PERFCXXFLAGS = -std=c++23 -g -O2 -fno-omit-frame-pointer -DNDEBUG
+
+BENCHMARKCXXFLAGS = -std=c++23 -O3 -DNDEBUG
+
 SANITIZERS = -fsanitize=address,undefined
 
 SRC = main.cpp \
@@ -30,6 +34,16 @@ $(EXEC): $(OBJ)
 
 %.o: %.cpp
 	$(CXX) -c $(CXXFLAGS) $(SANITIZERS) $< -o $@
+
+perf: CXXFLAGS := $(PERFCXXFLAGS)
+perf: SANITIZERS :=
+perf: clean
+perf: $(EXEC)
+
+benchmark: CXXFLAGS := $(BENCHMARKCXXFLAGS)
+benchmark: SANITIZERS :=
+benchmark: clean
+benchmark: $(EXEC)
 
 clean:
 	rm -f $(OBJ) $(EXEC)

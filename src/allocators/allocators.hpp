@@ -17,7 +17,7 @@
 #include "../root-set-table/register-root.hpp"
 
 /// number of allocations per tls in stress mode.
-size_t constexpr TLS_ALLOC_STRESS_THRESHOLD = 8192;
+size_t constexpr TLS_ALLOC_STRESS_THRESHOLD = 65536;
 
 /// number of scopes per tls for stress mode.
 size_t constexpr TLS_SCOPE_COUNT_STRESS = 8;

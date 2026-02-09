@@ -21,13 +21,6 @@ int main() {
         allocator.simulate_alloc(tls_count, global_count, register_count, simulation_mode::stress);
         std::cout << "\n";
     }
-
-    for(size_t i = 0; i < len; ++i){
-        std::cout << std::format("Allocators using {} threads in relaxed mode: \n", alloc_thread_counts[i]);
-        allocators allocator(heap_mng, alloc_thread_counts[i]);
-        allocator.simulate_alloc(tls_count, global_count, register_count, simulation_mode::relaxed);
-        std::cout << "\n";
-    }
     
     return 0;
 }
